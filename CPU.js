@@ -23,10 +23,6 @@ const Register16 = Object.freeze({
     PC: 1, // program counter
 });
 
-// Instruction LUT
-const INSTRUCTIONS = {
-};
-
 const register8Table = document.querySelector('#register8-table');
 const register16Table = document.querySelector('#register16-table');
 

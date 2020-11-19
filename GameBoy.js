@@ -6,7 +6,7 @@ class GameBoy {
     }
 
     reset() {
-        // RAM.fill(0); // specifically do NOT clear RAM, because the actual game boy doesn't do this
+        RAM.fill(0);
         // resets RAM and registers according to 
         for (const [addr, val] of Object.entries(INITIAL_RAM))
             RAM.write(addr, val);

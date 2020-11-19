@@ -1,9 +1,40 @@
 <html>
     <head>
-
+        <meta charset="UTF-8">
     </head>
     <body>
+        Screen
+        <canvas id="screen"></canvas>
 
+        <h2>Registers</h2>
+        <h3>8-bit Registers</h3>
+        <table id="8bit-register-table" style="border-spacing: 10px 0; border-collapse: separate;">
+            <tr style="text-align: left;">
+                <th>Register</th>
+                <th>Binary</th>
+                <th>Hex</th>
+                <th>Decimal</th>
+            </tr>
+        </table>
+        <h3>16-bit Registers</h3>
+        <table id="16bit-register-table" style="border-spacing: 10px 0; border-collapse: separate;">
+            <tr style="text-align: left;">
+                <th>Register</th>
+                <th>Binary</th>
+                <th>Hex</th>
+                <th>Decimal</th>
+            </tr>
+        </table>
+
+        Load ROM
+        <input id="rom-input" type="file">
+
+        <script src="RAMconstants.js"></script>
+        <script src="RAM.js"></script>
+        <script src="MBC.js"></script>
+        <script src="Screen.js"></script>
+        <script src="CPU.js"></script>
+        <script src="GameBoy.js"></script>
         <script src="index.js"></script>
     </body>
 </html>

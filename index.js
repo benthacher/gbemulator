@@ -34,10 +34,10 @@ function loop() {
     }
 
     if (stepCheckbox.checked) {
-        gb.CPU.doCycle();
+        CPU.doCycle();
     } else {
         for (let i = 0; i < instrPerLoop; i++) {
-            gb.CPU.doCycle();
+            CPU.doCycle();
         }
         
         requestAnimationFrame(loop);

@@ -1,7 +1,5 @@
 class GameBoy {
     constructor() {
-        this.CPU = new CPU();
-
         this.reset();
     }
 
@@ -11,8 +9,8 @@ class GameBoy {
         for (const [addr, val] of Object.entries(INITIAL_RAM))
             RAM.write(addr, val);
         
-        this.CPU.reg8 = INITIAL_REG8.slice(0);
-        this.CPU.reg16 = INITIAL_REG16.slice(0);
+        CPU.reg8 = INITIAL_REG8.slice(0);
+        CPU.reg16 = INITIAL_REG16.slice(0);
     }
 
     powerOn() {

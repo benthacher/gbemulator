@@ -43,27 +43,27 @@ const register16Table = document.querySelector('#register16-table');
 
 class CPU {
     constructor() {
-        this.registers8 = new Uint8Array(8); // 8 bit registers
-        this.registers16 = new Uint16Array(2); // 16 bit registers
+        this.reg8 = new Uint8Array(8); // 8 bit registers
+        this.reg16 = new Uint16Array(2); // 16 bit registers
     }
 
     doCycle() {
         // get instruction at PC
-        let PC = this.registers16[Reg16.PC];
+        let PC = this.reg16[Reg16.PC];
         PCinc = INSTRUCTIONS[RAM.read(PC)](
             RAM.read(PC + 1), // call instruction using the next two bits
             RAM.read(PC + 2)
         ); // return value is the amount the PC should be incremented by
 
-        this.registers16[Reg16.PC] += PCinc;
+        this.reg16[Reg16.PC] += PCinc;
         this.displayRegisters();
     }
 
     setFlag(flag, value) {
         if (value == 1)
-            this.registers8[Reg8.F] |= 1 << flag;
+            this.reg8[Reg8.F] |= 1 << flag;
         else
-            this.registers8[Reg8.F] &= ~(1 << flag);
+            this.reg8[Reg8.F] &= ~(1 << flag);
     }
 
     setHalfCarry(addend1, addend2) {
@@ -79,7 +79,7 @@ class CPU {
     displayRegisters() {
         for (const reg of Object.keys(Reg8)) {
             const row = register8Table.querySelector('#' + reg).childNodes; // children of the row are the cells
-            const value = this.registers8[Reg8[reg]];
+            const value = this.reg8[Reg8[reg]];
 
             row[1].innerHTML = '0b' + value.toString(2).padStart(8, '0');
             row[2].innerHTML = '0x' + value.toString(16).padStart(2, '0');
@@ -88,7 +88,7 @@ class CPU {
 
         for (const reg of Object.keys(Reg16)) {
             const row = register16Table.querySelector('#' + reg).childNodes; // children of the row are the cells
-            const value = this.registers16[Reg16[reg]];
+            const value = this.reg16[Reg16[reg]];
 
             row[1].innerHTML = '0b' + value.toString(2).padStart(8, '0');
             row[2].innerHTML = '0x' + value.toString(16).padStart(2, '0');
@@ -103,8 +103,8 @@ class CPU {
      * @param {number} val Value to write to combined register
      */
     combinedRegWrite(reg1, reg2, val) {
-        this.registers8[reg1] = val >> 8; // higher byte into first reg
-        this.registers8[reg2] = val & 0xFF; // lower byte into second reg
+        this.reg8[reg1] = val >> 8; // higher byte into first reg
+        this.reg8[reg2] = val & 0xFF; // lower byte into second reg
     }
 
     /**
@@ -113,7 +113,7 @@ class CPU {
      * @param {Reg8} reg2 Second 8 bit register (should be adjacent to first)
      */
     combinedRegRead(reg1, reg2) {
-        return this.registers8[reg1] << 8 + this.registers8[reg2];
+        return this.reg8[reg1] << 8 + this.reg8[reg2];
     }
     
     add(register, addend) {
@@ -122,9 +122,9 @@ class CPU {
         if (addend == Reg8.HL_ADDRESS) {
             instr = () => {
                 // add data at address pointed to by HL to the register specified and save result
-                const regValue = this.registers8[register];
+                const regValue = this.reg8[register];
                 const ramValue = RAM.read(this.combinedRegRead(Reg8.H, Reg8.L))
-                const res = this.registers8[register] += ramValue;
+                const res = this.reg8[register] += ramValue;
                 
                 this.setFlag(Flag.Z, res == 0);
                 this.setFlag(Flag.N, 0);
@@ -136,8 +136,8 @@ class CPU {
         } else if (addend == Reg8.CONSTANT) {
             instr = (imm8) => {
                 // add immediate value to the register specified and save result
-                const regValue = this.registers8[register];
-                const res = this.registers8[register] += imm8;
+                const regValue = this.reg8[register];
+                const res = this.reg8[register] += imm8;
                 
                 this.setFlag(Flag.Z, res == 0);
                 this.setFlag(Flag.N, 0);
@@ -149,9 +149,9 @@ class CPU {
         } else { // normal register addition
             instr = () => {
                 // add value in addend register to the register specified and save result
-                const regValue = this.registers8[register];
-                const addend = this.registers8[addend];
-                const res = this.registers8[register] += addend;
+                const regValue = this.reg8[register];
+                const addend = this.reg8[addend];
+                const res = this.reg8[register] += addend;
                 
                 this.setFlag(Flag.Z, res == 0);
                 this.setFlag(Flag.N, 0);

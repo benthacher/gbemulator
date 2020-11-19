@@ -11,8 +11,8 @@ class GameBoy {
         for (const [addr, val] of Object.entries(INITIAL_RAM))
             RAM.write(addr, val);
         
-        this.CPU.registers8 = INITIAL_REG8.slice(0);
-        this.CPU.registers16 = INITIAL_REG16.slice(0);
+        this.CPU.reg8 = INITIAL_REG8.slice(0);
+        this.CPU.reg16 = INITIAL_REG16.slice(0);
     }
 
     powerOn() {

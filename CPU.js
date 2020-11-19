@@ -27,7 +27,8 @@ const Register16 = Object.freeze({
 const INSTRUCTIONS = {
 };
 
-const registerTable = document.querySelector('#register-table');
+const register8Table = document.querySelector('#register8-table');
+const register16Table = document.querySelector('#register16-table');
 
 class CPU {
     constructor() {
@@ -36,14 +37,23 @@ class CPU {
     }
 
     displayRegisters() {
-        // for (const reg of Object.keys(Register)) {
-        //     const row = registerTable.querySelector('#' + reg).childNodes; // children of the row are the cells
-        //     const value = this.registers[Register[reg]];
+        for (const reg of Object.keys(Register8)) {
+            const row = register8Table.querySelector('#' + reg).childNodes; // children of the row are the cells
+            const value = this.registers8[Register8[reg]];
 
-        //     row[1].innerHTML = '0b' + value.toString(2).padStart(8, '0');
-        //     row[2].innerHTML = '0x' + value.toString(16).padStart(2, '0');
-        //     row[3].innerHTML = value;
-        // }
+            row[1].innerHTML = '0b' + value.toString(2).padStart(8, '0');
+            row[2].innerHTML = '0x' + value.toString(16).padStart(2, '0');
+            row[3].innerHTML = value;
+        }
+
+        for (const reg of Object.keys(Register16)) {
+            const row = register16Table.querySelector('#' + reg).childNodes; // children of the row are the cells
+            const value = this.registers16[Register16[reg]];
+
+            row[1].innerHTML = '0b' + value.toString(2).padStart(8, '0');
+            row[2].innerHTML = '0x' + value.toString(16).padStart(2, '0');
+            row[3].innerHTML = value;
+        }
     }
 
     /**
@@ -127,17 +137,31 @@ class CPU {
 }
 
 function generateRegisterTable() {
-    // for (const reg of Object.keys(Register)) { // loop through all registers
-    //     const row = document.createElement('tr'); // make a row for each reg
-    //     row.id = reg; // create ID so we can index it later
+    for (const reg of Object.keys(Register8)) { // loop through all registers
+        const row = document.createElement('tr'); // make a row for each reg
+        row.id = reg; // create ID so we can index it later
 
-    //     const regLabel = document.createElement('td');
-    //     regLabel.innerHTML = reg;
+        const regLabel = document.createElement('td');
+        regLabel.innerHTML = reg;
 
-    //     row.append(regLabel);
-    //     // append 3 cells for the different display types
-    //     row.append(document.createElement('td'), document.createElement('td'), document.createElement('td'));
+        row.append(regLabel);
+        // append 3 cells for the different display types
+        row.append(document.createElement('td'), document.createElement('td'), document.createElement('td'));
 
-    //     registerTable.append(row); // add row to table
-    // }
+        register8Table.append(row); // add row to table
+    }
+
+    for (const reg of Object.keys(Register16)) { // loop through all registers
+        const row = document.createElement('tr'); // make a row for each reg
+        row.id = reg; // create ID so we can index it later
+
+        const regLabel = document.createElement('td');
+        regLabel.innerHTML = reg;
+
+        row.append(regLabel);
+        // append 3 cells for the different display types
+        row.append(document.createElement('td'), document.createElement('td'), document.createElement('td'));
+
+        register16Table.append(row); // add row to table
+    }
 }

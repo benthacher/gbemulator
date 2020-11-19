@@ -13,7 +13,9 @@ const Reg8 = Object.freeze({
     L: 7,
     MEMORY: 8,
     CONSTANT: 9,
-    HL_ADDRESS: 10
+    HL_ADDRESS: 10,
+    BC_ADDRESS: 11,
+    DE_ADDRESS: 12
 });
 
 /**
@@ -41,37 +43,38 @@ const Reg16 = Object.freeze({
 const register8Table = document.querySelector('#register8-table');
 const register16Table = document.querySelector('#register16-table');
 
-let reg8 = new Uint8Array(8); // 8 bit registers
-let reg16 = new Uint16Array(2); // 16 bit registers
-let PCinc = 0;
-
 const CPU = {
+    reg8: new Uint8Array(8), // 8 bit registers
+    reg16: new Uint16Array(2), // 16 bit registers
+    PCinc: 0,
+    stopped: false,
+
     doCycle() {
         // get instruction at PC
-        let PC = reg16[Reg16.PC];
+        let PC = this.reg16[Reg16.PC];
 
         if (PC == 0xCB) {
-            reg16[Reg16.PC] = ++PC;
+            this.reg16[Reg16.PC] = ++PC;
 
-            PCinc = CB_INSTRUCTIONS[RAM.read(PC)](
+            this.PCinc = CB_INSTRUCTIONS[RAM.read(PC)](
                 RAM.read(PC + 1), // call instruction prefixed with 0xCB using the next two bits
                 RAM.read(PC + 2)
             ); // return value is the amount the PC should be incremented by    
         } else {
-            PCinc = INSTRUCTIONS[RAM.read(PC)](
+            this.PCinc = INSTRUCTIONS[RAM.read(PC)](
                 RAM.read(PC + 1), // call instruction using the next two bits
                 RAM.read(PC + 2)
             ); // return value is the amount the PC should be incremented by
         }
 
-        reg16[Reg16.PC] += PCinc;
+        this.reg16[Reg16.PC] += this.PCinc;
         this.displayRegisters();
     },
     setFlag(flag, value) {
         if (value == 1)
-            reg8[Reg8.F] |= 1 << flag;
+            this.reg8[Reg8.F] |= 1 << flag;
         else
-            reg8[Reg8.F] &= ~(1 << flag);
+            this.reg8[Reg8.F] &= ~(1 << flag);
     },
     setHalfCarry(addend1, addend2) {
         // set half carry flag if the sum of the lower nibbles is greater than 0b1111 (a half carry occured)
@@ -84,7 +87,7 @@ const CPU = {
     displayRegisters() {
         for (const reg of Object.keys(Reg8)) {
             const row = register8Table.querySelector('#' + reg).childNodes; // children of the row are the cells
-            const value = reg8[Reg8[reg]];
+            const value = this.reg8[Reg8[reg]];
 
             row[1].innerHTML = '0b' + value.toString(2).padStart(8, '0');
             row[2].innerHTML = '0x' + value.toString(16).padStart(2, '0');
@@ -93,7 +96,7 @@ const CPU = {
 
         for (const reg of Object.keys(Reg16)) {
             const row = register16Table.querySelector('#' + reg).childNodes; // children of the row are the cells
-            const value = reg16[Reg16[reg]];
+            const value = this.reg16[Reg16[reg]];
 
             row[1].innerHTML = '0b' + value.toString(2).padStart(8, '0');
             row[2].innerHTML = '0x' + value.toString(16).padStart(2, '0');
@@ -107,8 +110,8 @@ const CPU = {
      * @param {number} val Value to write to combined register
      */
     combinedRegWrite(reg1, reg2, val) {
-        reg8[reg1] = val >> 8; // higher byte into first reg
-        reg8[reg2] = val & 0xFF; // lower byte into second reg
+        this.reg8[reg1] = val >> 8; // higher byte into first reg
+        this.reg8[reg2] = val & 0xFF; // lower byte into second reg
     },
     /**
      * 
@@ -116,17 +119,75 @@ const CPU = {
      * @param {Reg8} reg2 Second 8 bit register (should be adjacent to first)
      */
     combinedRegRead(reg1, reg2) {
-        return reg8[reg1] << 8 + reg8[reg2];
+        return this.reg8[reg1] << 8 + this.reg8[reg2];
+    },
+    getHL() {
+        return this.combinedRegRead(Reg8.H, Reg8.L);
+    },
+    nop() {
+        return () => 1; // return function that returns 1 so that PC is incremented
+    },
+    stop() {
+        return () => {
+            this.stopped = true;
+            return 1;
+        };
+    },
+    ld8(dest, src) {
+        switch (dest) {
+            case Reg8.HL_ADDRESS:
+                return () => {
+                    RAM.write(RAM.read(this.getHL()), this.reg8[src]);
+                    return 1;
+                };
+            case Reg8.BC_ADDRESS:
+                return () => {
+                    RAM.write(RAM.read(this.combinedRegRead(Reg8.B, Reg8.C)), this.reg8[src]);
+                    return 1;
+                };
+            case Reg8.DE_ADDRESS:
+                return () => {
+                    RAM.write(RAM.read(this.combinedRegRead(Reg8.D, Reg8.E)), this.reg8[src]);
+                    return 1;
+                };
+            case Reg8.MEMORY:
+                return (addr_high, addr_low) => {
+                    RAM.write(RAM.read((addr_high << 8) + addr_low), this.reg8[src]);
+                    return 1;
+                };
+        }
+        switch (src) {
+            case Reg8.HL_ADDRESS:
+                return () => {
+                    this.reg8[dest] = RAM.read(this.getHL());
+                    return 1;
+                };
+            case Reg8.BC_ADDRESS:
+                return () => {
+                    this.reg8[dest] = RAM.read(this.combinedRegRead(Reg8.B, Reg8.C));
+                    return 1;
+                };
+            case Reg8.DE_ADDRESS:
+                return () => {
+                    this.reg8[dest] = RAM.read(this.combinedRegRead(Reg8.D, Reg8.E));
+                    return 1;
+                };
+            case Reg8.MEMORY:
+                return (addr_high, addr_low) => {
+                    this.reg8[dest] = RAM.read((addr_high << 8) + addr_low);
+                    return 1;
+                };
+        }
+        // if no special cases, load simple reg8 into reg8
+        this.reg8[dest] = this.reg8[src];
     },
     add8(register, addend) {
-        let instr;
-
         if (addend == Reg8.HL_ADDRESS) {
-            instr = () => {
+            return () => {
                 // add data at address pointed to by HL to the register specified and save result
-                const regValue = reg8[register];
-                const ramValue = RAM.read(this.combinedRegRead(Reg8.H, Reg8.L))
-                const res = reg8[register] += ramValue;
+                const regValue = this.reg8[register];
+                const ramValue = RAM.read(this.getHL())
+                const res = this.reg8[register] += ramValue;
                 
                 this.setFlag(Flag.Z, res == 0);
                 this.setFlag(Flag.N, 0);
@@ -136,10 +197,10 @@ const CPU = {
                 return 1; // increment PC by 1 (skip forward instruction length)
             }
         } else if (addend == Reg8.CONSTANT) {
-            instr = (imm8) => {
+            return (imm8) => {
                 // add immediate value to the register specified and save result
-                const regValue = reg8[register];
-                const res = reg8[register] += imm8;
+                const regValue = this.reg8[register];
+                const res = this.reg8[register] += imm8;
                 
                 this.setFlag(Flag.Z, res == 0);
                 this.setFlag(Flag.N, 0);
@@ -149,11 +210,11 @@ const CPU = {
                 return 2; // increment PC by 2 (skip forward instruction length + constant number)
             }
         } else { // normal register addition
-            instr = () => {
+            return () => {
                 // add value in addend register to the register specified and save result
-                const regValue = reg8[register];
-                const addValue = reg8[addend];
-                const res = reg8[register] += addValue;
+                const regValue = this.reg8[register];
+                const addValue = this.reg8[addend];
+                const res = this.reg8[register] += addValue;
                 
                 this.setFlag(Flag.Z, res == 0);
                 this.setFlag(Flag.N, 0);
@@ -163,14 +224,12 @@ const CPU = {
                 return 1; // increment PC by 1 (skip forward instruction length)
             }
         }
-
-        return instr;
     },
     addSP() {
         return (imm8) => {
-            const regValue = reg16[Reg16.SP];
+            const regValue = this.reg16[Reg16.SP];
             
-            reg16[Reg16.SP] += imm8;
+            this.reg16[Reg16.SP] += imm8;
             
             this.setFlag(Flag.Z, 0);
             this.setFlag(Flag.N, 0);
@@ -182,8 +241,8 @@ const CPU = {
     },
     addHL(reg16) {
         if (reg16 != Reg16.SP) {
-            instr = () => {
-                const HLvalue = this.combinedRegRead(Reg8.H, Reg8.L);
+            return () => {
+                const HLvalue = this.getHL();
                 const regValue = this.combinedRegRead(reg16, reg16 + 1);
 
                 this.setFlag(Flag.N, 0);
@@ -194,10 +253,10 @@ const CPU = {
 
                 return 1; // increment PC by 1 (skip forward instruction length)
             }
-        } else { // reg16 refers to stack pointer
-            instr = () => {
-                const HLvalue = this.combinedRegRead(Reg8.H, Reg8.L);
-                const regValue = reg16[Reg16.SP];
+        } else { // this.reg16 refers to stack pointer
+            return () => {
+                const HLvalue = this.getHL();
+                const regValue = this.reg16[Reg16.SP];
 
                 this.setFlag(Flag.N, 0);
                 this.setHalfCarry(HLvalue, regValue);
@@ -208,12 +267,11 @@ const CPU = {
                 return 1; // increment PC by 1 (skip forward instruction length)
             }
         }
-        return instr;
     }
 };
 
 function generateRegisterTable() {
-    for (const reg of Object.keys(Reg8)) { // loop through all registers
+    for (const reg of Object.keys(Reg8)) { // loop through all 8-bit registers
         const row = document.createElement('tr'); // make a row for each reg
         row.id = reg; // create ID so we can index it later
 
@@ -227,7 +285,7 @@ function generateRegisterTable() {
         register8Table.append(row); // add row to table
     }
 
-    for (const reg of Object.keys(Reg16)) { // loop through all registers
+    for (const reg of Object.keys(Reg16)) { // loop through all 16-bit registers
         const row = document.createElement('tr'); // make a row for each reg
         row.id = reg; // create ID so we can index it later
 

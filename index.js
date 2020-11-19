@@ -2,7 +2,6 @@ generateRegisterTable();
 
 const gb = new GameBoy();
 
-let stopped = false;
 let instrPerLoop = 100;
 let stepping = false;
 
@@ -28,7 +27,7 @@ window.onkeydown = e => {
 }
 
 function loop() {
-    if (stopped) {
+    if (CPU.stopped) {
         console.log('GameBoy has stopped.')
         return;
     }

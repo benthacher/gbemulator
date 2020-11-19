@@ -25,7 +25,7 @@ const Flag = Object.freeze({
     N: 6,
     H: 5,
     C: 4
-})
+});
 
 // 16 bit counterpart to Reg8
 /**
@@ -45,17 +45,28 @@ class CPU {
     constructor() {
         this.reg8 = new Uint8Array(8); // 8 bit registers
         this.reg16 = new Uint16Array(2); // 16 bit registers
+        this.PCinc = 0;
     }
 
     doCycle() {
         // get instruction at PC
         let PC = this.reg16[Reg16.PC];
-        PCinc = INSTRUCTIONS[RAM.read(PC)](
-            RAM.read(PC + 1), // call instruction using the next two bits
-            RAM.read(PC + 2)
-        ); // return value is the amount the PC should be incremented by
 
-        this.reg16[Reg16.PC] += PCinc;
+        if (PC == 0xCB) {
+            this.reg16[Reg16.PC] = ++PC;
+
+            this.PCinc = CB_INSTRUCTIONS[RAM.read(PC)](
+                RAM.read(PC + 1), // call instruction prefixed with 0xCB using the next two bits
+                RAM.read(PC + 2)
+            ); // return value is the amount the PC should be incremented by    
+        } else {
+            this.PCinc = INSTRUCTIONS[RAM.read(PC)](
+                RAM.read(PC + 1), // call instruction using the next two bits
+                RAM.read(PC + 2)
+            ); // return value is the amount the PC should be incremented by
+        }
+
+        this.reg16[Reg16.PC] += this.PCinc;
         this.displayRegisters();
     }
 
@@ -116,7 +127,7 @@ class CPU {
         return this.reg8[reg1] << 8 + this.reg8[reg2];
     }
     
-    add(register, addend) {
+    add8(register, addend) {
         let instr;
 
         if (addend == Reg8.HL_ADDRESS) {
@@ -150,18 +161,64 @@ class CPU {
             instr = () => {
                 // add value in addend register to the register specified and save result
                 const regValue = this.reg8[register];
-                const addend = this.reg8[addend];
-                const res = this.reg8[register] += addend;
+                const addValue = this.reg8[addend];
+                const res = this.reg8[register] += addValue;
                 
                 this.setFlag(Flag.Z, res == 0);
                 this.setFlag(Flag.N, 0);
-                this.setHalfCarry(regValue, addend);
-                this.setCarry(regValue, addend);
+                this.setHalfCarry(regValue, addValue);
+                this.setCarry(regValue, addValue);
 
                 return 1; // increment PC by 1 (skip forward instruction length)
             }
         }
 
+        return instr;
+    }
+
+    addSP() {
+        return (imm8) => {
+            const regValue = this.reg16[Reg16.SP];
+            
+            this.reg16[Reg16.SP] += imm8;
+            
+            this.setFlag(Flag.Z, 0);
+            this.setFlag(Flag.N, 0);
+            this.setHalfCarry(regValue, imm8);
+            this.setCarry(regValue, imm8);
+            
+            return 1; // increment PC by 1 (skip forward instruction length)
+        }
+    }
+
+    addHL(reg16) {
+        if (reg16 != Reg16.SP) {
+            instr = () => {
+                const HLvalue = this.combinedRegRead(Reg8.H, Reg8.L);
+                const regValue = this.combinedRegRead(reg16, reg16 + 1);
+
+                this.setFlag(Flag.N, 0);
+                this.setHalfCarry(HLvalue, regValue);
+                this.setCarry(HLvalue, regValue);
+
+                this.combinedRegWrite(Reg8.H, Reg8.L, HLvalue + regValue);
+
+                return 1; // increment PC by 1 (skip forward instruction length)
+            }
+        } else { // reg16 refers to stack pointer
+            instr = () => {
+                const HLvalue = this.combinedRegRead(Reg8.H, Reg8.L);
+                const regValue = this.reg16[Reg16.SP];
+
+                this.setFlag(Flag.N, 0);
+                this.setHalfCarry(HLvalue, regValue);
+                this.setCarry(HLvalue, regValue);
+
+                this.combinedRegWrite(Reg8.H, Reg8.L, HLvalue + regValue);
+
+                return 1; // increment PC by 1 (skip forward instruction length)
+            }
+        }
         return instr;
     }
 }

@@ -15,35 +15,25 @@ const CARTRIDGE_SWITCHABLE_RAM = 0x4000; // 16384
 const INTERNAL_INFO = 0x0100;
 const CARTRIDGE_RAM_BANK_0 = 0x0000; // 16384
 
-/**
- * 
- * @param {number} addr Address to read from RAM
- */
 RAM.read = (addr) => {
     if (addr < OAM && addr >= ECHO_8kB_INTERNAL) // if accessing echo RAM, access actual ram instead
         addr -= 0x4000; // shift address down 8kB (size of the echo RAM)
     
-    return RAM[addr];
+    if (addr > 0 && addr < RAM.length)
+        return RAM[addr];
 }
 
-/**
- * 
- * @param {number} addr Address to write to in RAM
- * @param {number} val Value to write to address
- */
 RAM.write = (addr, val) => {
     if (addr < OAM && addr >= ECHO_8kB_INTERNAL) // if writing to echo RAM, write to actual ram instead
         addr -= 0x4000; // shift address down 8kB (size of the echo RAM)
     
-    RAM[addr] = val;
+    if (addr > 0 && addr < RAM.length)
+        RAM[addr] = val;
 }
 
 let ROM; // represents full memory of cartidge
 let validROM = false;
-/**
- * 
- * @param {Uint8Array} buffer Byte buffer to write to the beginning section of RAM
- */
+
 RAM.loadROM = (buffer) => {
     RAM.fill(0, CARTRIDGE_RAM_BANK_0, VRAM - 1); // clear all cartidge RAM and external RAM
     RAM.fill(0, SWITCHABLE_RAM, INTERNAL_RAM - 1);

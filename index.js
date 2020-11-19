@@ -2,8 +2,9 @@ generateRegisterTable();
 
 const gb = new GameBoy();
 
-let stopped = true;
-let PCinc;
+let stopped = false;
+let instrPerLoop = 100;
+let stepping = false;
 
 let romInput = document.querySelector('#rom-input');
 romInput.value = "";
@@ -17,12 +18,30 @@ romInput.onchange = function() {
     reader.readAsArrayBuffer(this.files[0]);
 };
 
-gb.CPU.displayRegisters();
+let stepCheckbox = document.querySelector('#step');
 
-while (!stopped) {
-    // PC increment defined by return value of next instruction at PC (0 for jump, most others 1, some are 2)
-    // always pass the next byte in memory as a parameter, just in case the instruction requires it
-    PCinc = CPU.instructions[RAM.read(gb.CPU.PC)](RAM.read(gb.CPU.PC + 1), RAM.read(gb.CPU.PC + 2));
+window.onkeydown = e => {
+    // stopped = true;
 
-    gb.CPU.PC += PCinc;
+    if (stepCheckbox.checked && e.key == "Enter")
+        loop();
 }
+
+function loop() {
+    if (stopped) {
+        console.log('GameBoy has stopped.')
+        return;
+    }
+
+    if (stepCheckbox.checked) {
+        gb.CPU.doCycle();
+    } else {
+        for (let i = 0; i < instrPerLoop; i++) {
+            gb.CPU.doCycle();
+        }
+        
+        requestAnimationFrame(loop);
+    }
+}
+
+loop();

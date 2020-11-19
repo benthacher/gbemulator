@@ -36,6 +36,18 @@ class CPU {
         this.registers16 = new Uint16Array(2); // 16 bit registers
     }
 
+    doCycle() {
+        // get instruction at PC
+        let PC = this.registers16[Register16.PC];
+        PCinc = INSTRUCTIONS[RAM.read(PC)](
+            RAM.read(PC + 1), // call instruction using the next two bits
+            RAM.read(PC + 2)
+        ); // return value is the amount the PC should be incremented by
+
+        this.registers16[Register16.PC] += PCinc;
+        this.displayRegisters();
+    }
+
     displayRegisters() {
         for (const reg of Object.keys(Register8)) {
             const row = register8Table.querySelector('#' + reg).childNodes; // children of the row are the cells

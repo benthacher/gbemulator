@@ -470,6 +470,32 @@ const CPU = {
             }
         }
     },
+    swap(reg8) {
+        if (reg8 == Reg8.HL_ADDRESS) {
+            return () => {
+                let HLdata = RAM.read(this.getHL());
+                const highNibble = HLdata >> 4; // shift 4 times to the right to get high nibble
+                HLdata &= 0x0F; // get lower nibble into HLdata
+
+                RAM.write(this.getHL(), (HLdata << 4) + highNibble);
+
+                return 1;
+            }
+        } else {
+            return () => {
+                const lowNibble = this.reg8[reg8] << 4; //  xxxxllll -> xxxxllll0000
+                const highNibble = this.reg8[reg8] >> 4; // hhhhxxxx ->     0000hhhh
+
+                //   xxxxllll0000
+                // +     0000hhhh
+                // --------------
+                //   xxxxllllhhhh <- top 4 bits (xxxx) are chopped off because registers are only 8 bits!
+                this.reg8[reg8] = lowNibble + highNibble;
+
+                return 1;
+            }
+        }
+    },
     bit(bit, reg8) {
         const mask = (1 << bit);
         if (reg8 == Reg8.HL_ADDRESS) {

@@ -230,13 +230,55 @@ const CPU = {
             return 3;
         }
     },
+    // dec argument allows this function to work as decrement as well
+    inc8(reg, dec = false) {
+        if (reg == Reg8.HL_ADDRESS) {
+            return () => {
+                const HLvalue = this.getHL();
+                const ramValue = RAM.read(HLvalue);
+                const res = ramValue + (dec ? -1 : 1)
+                RAM.write(HLvalue, res);
+
+                this.setFlag(Flag.Z, res == 0);
+                this.setFlag(Flag.N, dec);
+                this.setHalfCarry(ramValue, (dec ? -1 : 1));
+
+                return 1;
+            }
+        } else {
+            return () => {
+                const regValue = this.reg8[reg];
+                const res = regValue += dec ? -1 : 1;
+
+                this.setFlag(Flag.Z, res == 0);
+                this.setFlag(Flag.N, dec);
+                this.setHalfCarry(regValue, (dec ? -1 : 1));
+
+                return 1;
+            }
+        }
+    },
+    // dec argument allows this function to work as decrement as well
+    inc16(reg, dec = false) {
+        if (reg == Reg16.SP) {
+            return () => {
+                this.reg16[Reg16.SP] += dec ? -1 : 1;
+                return 1;
+            }
+        } else {
+            return () => {
+                this.combinedRegWrite(reg, reg + 1, this.combinedRegRead(reg, reg + 1) + (dec ? -1 : 1));
+                return 1;
+            }
+        }
+    },
     add8(register, addend, carry = false, subtract = false) {
         if (addend == Reg8.HL_ADDRESS) {
             return () => {
                 // add data at address pointed to by HL to the register specified and save result
                 const regValue = this.reg8[register];
-                const ramValue = RAM.read(this.getHL())
-                const res = this.reg8[register] += (ramValue + carry * this.getFlag(Flag.C)) * (subtract ? -1 : 1);
+                const ramValue = (RAM.read(this.getHL()) + carry * this.getFlag(Flag.C)) * (subtract ? -1 : 1);
+                const res = this.reg8[register] += ramValue;
                 
                 this.setFlag(Flag.Z, res == 0);
                 this.setFlag(Flag.N, subtract);
@@ -249,7 +291,8 @@ const CPU = {
             return (imm8) => {
                 // add immediate value to the register specified and save result
                 const regValue = this.reg8[register];
-                const res = this.reg8[register] += (imm8 + carry * this.getFlag(Flag.C)) * (subtract ? -1 : 1);
+                imm8 = (imm8 + carry * this.getFlag(Flag.C)) * (subtract ? -1 : 1)
+                const res = this.reg8[register] += imm8;
                 
                 this.setFlag(Flag.Z, res == 0);
                 this.setFlag(Flag.N, subtract);
@@ -262,8 +305,8 @@ const CPU = {
             return () => {
                 // add value in addend register to the register specified and save result
                 const regValue = this.reg8[register];
-                const addValue = this.reg8[addend];
-                const res = this.reg8[register] += (addValue + carry * this.getFlag(Flag.C)) * (subtract ? -1 : 1);
+                const addValue = (this.reg8[addend] + carry * this.getFlag(Flag.C)) * (subtract ? -1 : 1);
+                const res = this.reg8[register] += addValue;
                 
                 this.setFlag(Flag.Z, res == 0);
                 this.setFlag(Flag.N, subtract);
@@ -281,7 +324,7 @@ const CPU = {
             this.reg16[Reg16.SP] += imm8;
             
             this.setFlag(Flag.Z, 0);
-            this.setFlag(Flag.N, subtract);
+            this.setFlag(Flag.N, 0);
             this.setHalfCarry(regValue, imm8);
             this.setCarry(regValue, imm8);
             

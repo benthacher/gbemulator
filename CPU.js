@@ -18,16 +18,17 @@ const Reg8 = Object.freeze({
     DE_ADDRESS: 12
 });
 
-/**
- * Bit offsets for flag register (F)
- * @typedef {number} Flag
- */
-const Flag = Object.freeze({
-    Z: 7,
-    N: 6,
-    H: 5,
-    C: 4
-});
+// Reg order defined by opcodes
+const Reg8Order = [
+    Reg8.B,
+    Reg8.C,
+    Reg8.D,
+    Reg8.E,
+    Reg8.H,
+    Reg8.L,
+    Reg8.HL_ADDRESS,
+    Reg8.A,
+];
 
 // 16 bit counterpart to Reg8
 /**
@@ -40,6 +41,17 @@ const Reg16 = Object.freeze({
     CONSTANT: 2
 });
 
+/**
+ * Bit offsets for flag register (F)
+ * @typedef {number} Flag
+ */
+const Flag = Object.freeze({
+    Z: 7,
+    N: 6,
+    H: 5,
+    C: 4
+});
+
 const register8Table = document.querySelector('#register8-table');
 const register16Table = document.querySelector('#register16-table');
 
@@ -49,32 +61,14 @@ const CPU = {
     PCinc: 0,
     stopped: false,
 
-    doCycle() {
-        // get instruction at PC
-        let PC = this.reg16[Reg16.PC];
-
-        if (PC == 0xCB) {
-            this.reg16[Reg16.PC] = ++PC;
-
-            this.PCinc = CB_INSTRUCTIONS[RAM.read(PC)](
-                RAM.read(PC + 1), // call instruction prefixed with 0xCB using the next two bits
-                RAM.read(PC + 2)
-            ); // return value is the amount the PC should be incremented by    
-        } else {
-            this.PCinc = INSTRUCTIONS[RAM.read(PC)](
-                RAM.read(PC + 1), // call instruction using the next two bits
-                RAM.read(PC + 2)
-            ); // return value is the amount the PC should be incremented by
-        }
-
-        this.reg16[Reg16.PC] += this.PCinc;
-        this.displayRegisters();
-    },
     setFlag(flag, value) {
         if (value == 1)
             this.reg8[Reg8.F] |= 1 << flag;
         else
             this.reg8[Reg8.F] &= ~(1 << flag);
+    },
+    getFlag(flag) {
+        return this.reg8[Reg8.F] & (1 << flag) != 0;
     },
     setHalfCarry(addend1, addend2) {
         // set half carry flag if the sum of the lower nibbles is greater than 0b1111 (a half carry occured)
@@ -133,6 +127,13 @@ const CPU = {
             return 1;
         };
     },
+    halt() {
+        // for now, halt just stops the cpu
+        return () => {
+            this.stopped = true;
+            return 1;
+        }
+    },
     ld8(dest, src) {
         switch (dest) {
             case Reg8.HL_ADDRESS:
@@ -181,16 +182,19 @@ const CPU = {
         // if no special cases, load simple reg8 into reg8
         this.reg8[dest] = this.reg8[src];
     },
-    add8(register, addend) {
+    ld16() {
+
+    },
+    add8(register, addend, carry = false, subtract = false) {
         if (addend == Reg8.HL_ADDRESS) {
             return () => {
                 // add data at address pointed to by HL to the register specified and save result
                 const regValue = this.reg8[register];
                 const ramValue = RAM.read(this.getHL())
-                const res = this.reg8[register] += ramValue;
+                const res = this.reg8[register] += (ramValue + carry * this.getFlag(Flag.C)) * (subtract ? -1 : 1);
                 
                 this.setFlag(Flag.Z, res == 0);
-                this.setFlag(Flag.N, 0);
+                this.setFlag(Flag.N, subtract);
                 this.setHalfCarry(regValue, ramValue);
                 this.setCarry(regValue, ramValue);
 
@@ -200,10 +204,10 @@ const CPU = {
             return (imm8) => {
                 // add immediate value to the register specified and save result
                 const regValue = this.reg8[register];
-                const res = this.reg8[register] += imm8;
+                const res = this.reg8[register] += (imm8 + carry * this.getFlag(Flag.C)) * (subtract ? -1 : 1);
                 
                 this.setFlag(Flag.Z, res == 0);
-                this.setFlag(Flag.N, 0);
+                this.setFlag(Flag.N, subtract);
                 this.setHalfCarry(regValue, imm8);
                 this.setCarry(regValue, imm8);
 
@@ -214,10 +218,10 @@ const CPU = {
                 // add value in addend register to the register specified and save result
                 const regValue = this.reg8[register];
                 const addValue = this.reg8[addend];
-                const res = this.reg8[register] += addValue;
+                const res = this.reg8[register] += (addValue + carry * this.getFlag(Flag.C)) * (subtract ? -1 : 1);
                 
                 this.setFlag(Flag.Z, res == 0);
-                this.setFlag(Flag.N, 0);
+                this.setFlag(Flag.N, subtract);
                 this.setHalfCarry(regValue, addValue);
                 this.setCarry(regValue, addValue);
 
@@ -232,7 +236,7 @@ const CPU = {
             this.reg16[Reg16.SP] += imm8;
             
             this.setFlag(Flag.Z, 0);
-            this.setFlag(Flag.N, 0);
+            this.setFlag(Flag.N, subtract);
             this.setHalfCarry(regValue, imm8);
             this.setCarry(regValue, imm8);
             
@@ -267,7 +271,59 @@ const CPU = {
                 return 1; // increment PC by 1 (skip forward instruction length)
             }
         }
-    }
+    },
+    bit(bit, reg8) {
+        const mask = (1 << bit);
+        if (reg8 == Reg8.HL_ADDRESS) {
+            return () => {
+                const bitValue = RAM.read(this.getHL()) & mask;
+
+                this.setFlag(Flag.Z, !bitValue)
+                this.setFlag(Flag.N, 0);
+                this.setFlag(Flag.H, 1);
+
+                return 1;
+            }
+        } else {
+            return () => {
+                const bitValue = this.reg8[reg8] & mask;
+
+                this.setFlag(Flag.Z, !bitValue)
+                this.setFlag(Flag.N, 0);
+                this.setFlag(Flag.H, 1);
+
+                return 1;
+            }
+        }
+    },
+    res(bit, reg8) {
+        const mask = ~(1 << bit);
+        if (reg8 == Reg8.HL_ADDRESS) {    
+            return () => {
+                RAM.write(this.getHL(), RAM.read(this.getHL()) & mask);
+                return 1;
+            }
+        } else {
+            return () => {
+                this.reg8[reg8] &= mask;
+                return 1;
+            }
+        }
+    },
+    set(bit, reg8) {
+        const mask = (1 << bit);
+        if (reg8 == Reg8.HL_ADDRESS) {
+            return () => {
+                RAM.write(this.getHL(), RAM.read(this.getHL()) | mask);
+                return 1;
+            }
+        } else {
+            return () => {
+                this.reg8[reg8] |= mask;
+                return 1;
+            }
+        }
+    },
 };
 
 function generateRegisterTable() {

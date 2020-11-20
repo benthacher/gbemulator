@@ -53,6 +53,16 @@ const Flag = Object.freeze({
     C: 4
 });
 
+/**
+ * Jump conditions for call and jump
+ */
+const JumpCondition = Object.freeze({
+    NZ: 0x00,
+    Z: 0x08,
+    NC: 0x10,
+    C: 0x18
+});
+
 const register8Table = document.querySelector('#register8-table');
 const register16Table = document.querySelector('#register16-table');
 
@@ -63,7 +73,7 @@ const CPU = {
     stopped: true,
 
     setFlag(flag, value) {
-        if (value == 1)
+        if (value)
             this.reg8[Reg8.F] |= 1 << flag;
         else
             this.reg8[Reg8.F] &= ~(1 << flag);
@@ -357,6 +367,60 @@ const CPU = {
                 this.combinedRegWrite(Reg8.H, Reg8.L, HLvalue + regValue);
 
                 return 1; // increment PC by 1 (skip forward instruction length)
+            }
+        }
+    },
+    rotate(reg8, left, carry) {
+        if (reg8 == Reg8.HL_ADDRESS) {
+            return () => {
+                let HLdata = RAM.read(this.getHL());
+                const rotatedBit = HLdata & (left ? (1 << 7) : 1); // depending on direction (left or right), save bit 0 or 7
+
+                if (left)
+                    HLdata = (HLdata << 1) & 0xFF; // shift left once, cut off bit 8
+                else
+                    HLdata >>= 1; // shift right once
+
+                if (carry) { // copy rotated bit into carry flag
+                    if (rotatedBit)
+                        HLdata |= left ? 1 : (1 << 7); // if rotated bit was 1, add it back to the right/left side
+                    this.setFlag(Flag.C, rotatedBit);
+                } else {
+                    if (this.getFlag(Flag.C))
+                        HLdata |= left ? 1 : (1 << 7); // if rotated bit was 1, add it back to the right/left side
+                }
+
+                RAM.write(this.getHL(), HLdata); 
+
+                this.setFlag(Flag.Z, HLdata == 0);
+                this.setFlag(Flag.N, 0);
+                this.setFlag(Flag.H, 0);
+
+                return 1;
+            }
+        } else {
+            return () => {
+                const rotatedBit = this.reg8[reg8] & (left ? (1 << 7) : 1); // depending on direction (left or right), save bit 0 or 7
+
+                if (left)
+                    this.reg8[reg8] <<= 1;
+                else
+                    this.reg8[reg8] >>= 1;
+
+                if (carry) { // copy rotated bit into carry flag
+                    if (rotatedBit)
+                        this.reg8[reg8] |= left ? 1 : (1 << 7); // if rotated bit was 1, add it back to the right/left side
+                    this.setFlag(Flag.C, rotatedBit);
+                } else {
+                    if (this.getFlag(Flag.C))
+                        this.reg8[reg8] |= left ? 1 : (1 << 7); // if rotated bit was 1, add it back to the right/left side
+                }
+
+                this.setFlag(Flag.Z, this.reg8[reg8] == 0);
+                this.setFlag(Flag.N, 0);
+                this.setFlag(Flag.H, 0);
+
+                return 1;
             }
         }
     },

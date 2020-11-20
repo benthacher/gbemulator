@@ -496,6 +496,81 @@ const CPU = {
             }
         }
     },
+    jump(bounded, jumpCondition) {
+        if (bounded) { // if instruction is JR, add immediate signed value to PC based on conditions
+            switch (jumpCondition) {
+                case null:
+                    return (imm8) => {
+                        this.reg16[Reg16.PC] += twosComp(imm8);
+                        return 0;
+                    };
+                case JumpCondition.Z:
+                    return (imm8) => {
+                        if (this.getFlag(Flag.Z)) {
+                            this.reg16[Reg16.PC] += twosComp(imm8);
+                            return 0;
+                        } else return 1;
+                    };
+                case JumpCondition.NZ:
+                    return (imm8) => {
+                        if (!this.getFlag(Flag.Z)) {
+                            this.reg16[Reg16.PC] += twosComp(imm8);
+                            return 0;
+                        } else return 1;
+                    };
+                case JumpCondition.C:
+                    return (imm8) => {
+                        if (this.getFlag(Flag.C)) {
+                            this.reg16[Reg16.PC] += twosComp(imm8);
+                            return 0;
+                        } else return 1;
+                    };
+                case JumpCondition.NC:
+                    return (imm8) => {
+                        if (!this.getFlag(Flag.C)) {
+                            this.reg16[Reg16.PC] += twosComp(imm8);
+                            return 0;
+                        } else return 1;
+                    };
+            }
+        } else {
+            switch (jumpCondition) {
+                case null:
+                    return (imm16_l, imm16_h) => {
+                        this.reg16[Reg16.PC] = (imm16_h << 8) + imm16_l;
+                        return 0;
+                    };
+                case JumpCondition.Z:
+                    return (imm16_l, imm16_h) => {
+                        if (this.getFlag(Flag.Z)) {
+                            this.reg16[Reg16.PC] = (imm16_h << 8) + imm16_l;
+                            return 0;
+                        } else return 1;
+                    };
+                case JumpCondition.NZ:
+                    return (imm16_l, imm16_h) => {
+                        if (!this.getFlag(Flag.Z)) {
+                            this.reg16[Reg16.PC] = (imm16_h << 8) + imm16_l;
+                            return 0;
+                        } else return 1;
+                    };
+                case JumpCondition.C:
+                    return (imm16_l, imm16_h) => {
+                        if (this.getFlag(Flag.C)) {
+                            this.reg16[Reg16.PC] = (imm16_h << 8) + imm16_l;
+                            return 0;
+                        } else return 1;
+                    };
+                case JumpCondition.NC:
+                    return (imm16_l, imm16_h) => {
+                        if (!this.getFlag(Flag.C)) {
+                            this.reg16[Reg16.PC] = (imm16_h << 8) + imm16_l;
+                            return 0;
+                        } else return 1;
+                    };
+            }
+        }
+    },
     bit(bit, reg8) {
         const mask = (1 << bit);
         if (reg8 == Reg8.HL_ADDRESS) {
@@ -582,4 +657,8 @@ function generateRegisterTable() {
 
         register16Table.append(row); // add row to table
     }
+}
+
+function twosComp(imm8) {
+    return (imm8 & (1 << 7)) ? (~imm8) + 1 : imm8;
 }

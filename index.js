@@ -2,27 +2,48 @@ generateRegisterTable();
 
 const gb = new GameBoy();
 
-let instrPerLoop = 100;
-let stepping = false;
+let instrPerLoop = 1; // it can kinda go up to 100 almost 
 
-let romInput = document.querySelector('#rom-input');
+const romInput = document.querySelector('#rom-input');
 romInput.value = "";
 romInput.onchange = function() {
     const reader = new FileReader();
     reader.onload = function() {
-        const arrayBuffer = this.result;
-
-        RAM.loadROM(new Uint8Array(arrayBuffer));
+        RAM.loadROM(new Uint8Array(this.result));
     };
     reader.readAsArrayBuffer(this.files[0]);
 };
 
-let stepCheckbox = document.querySelector('#step');
+const stepCheckbox = document.querySelector('#step');
+
+stepCheckbox.oninput = updateButtonState;
+
+const startButton = document.querySelector('#start');
+
+startButton.onclick = function() {
+    if (CPU.stopped) {
+        CPU.stopped = false;
+        loop();
+    } else {    
+        CPU.stop(false);
+    }
+    updateButtonState();
+}
+
+function updateButtonState() {
+    if (CPU.stopped) {
+        startButton.value = 'Start';
+        startButton.style.background = 'green';
+    } else {
+        startButton.value = 'Stop';
+        startButton.style.background = 'red';
+    }
+}
 
 window.onkeydown = e => {
     // stopped = true;
 
-    if (stepCheckbox.checked && e.key == "Enter")
+    if (e.key == "Enter")
         loop();
 }
 
@@ -34,6 +55,7 @@ function loop() {
 
     if (stepCheckbox.checked) {
         CPU.doCycle();
+        updateButtonState();
     } else {
         for (let i = 0; i < instrPerLoop; i++) {
             CPU.doCycle();

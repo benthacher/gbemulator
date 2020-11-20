@@ -62,26 +62,27 @@ CPU.doCycle = function() {
         const opcode = RAM.read(PC);
         const instr = CB_INSTRUCTIONS[opcode];
 
-        if (typeof instr == Function)
+        if (typeof instr == 'function') {
             this.PCinc = instr(
                 RAM.read(PC + 1), // call instruction prefixed with 0xCB using the next two bits
                 RAM.read(PC + 2)
             ); // return value is the amount the PC should be incremented by    
-        else {
-            console.log('undefined opcode:', opcode);
+        } else {
+            console.log('Undefined opcode:', '0x' + (opcode).toString(16).toUpperCase(), instr);
             this.stopped = true;
         }
     } else {
         const opcode = RAM.read(PC);
         const instr = INSTRUCTIONS[opcode];
 
-        if (typeof instr == Function)
-            this.PCinc = instr[RAM.read(PC)](
+        if (typeof instr == 'function') {
+            this.PCinc = instr(
                 RAM.read(PC + 1), // call instruction using the next two bits
                 RAM.read(PC + 2)
             ); // return value is the amount the PC should be incremented by
-        else {
-            console.log('undefined opcode:', opcode);
+        } else {
+            console.log(typeof opcode)
+            console.log('Undefined opcode:', '0x' + (opcode).toString(16).toUpperCase(), instr);
             this.stopped = true;
         }
     }

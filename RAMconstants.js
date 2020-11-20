@@ -95,5 +95,5 @@ const INITIAL_RAM = {
     0xFFFF: 0x00
 };
 
-const INITIAL_REG8 = new Uint8Array(0x01, 0xB0, 0x00, 0x13, 0x00, 0xD8, 0x01, 0x4D);
-const INITIAL_REG16 = new Uint16Array(0xFFFE, 0x0100); // stack pointer at the top of the stack, program counter at entry point (0x100)
+const INITIAL_REG8 = new Uint8Array([0x01, 0xB0, 0x00, 0x13, 0x00, 0xD8, 0x01, 0x4D]);
+const INITIAL_REG16 = new Uint16Array([0xFFFE, 0x0100]); // stack pointer at the top of the stack, program counter at entry point (0x100)

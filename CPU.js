@@ -38,7 +38,8 @@ const Reg8Order = [
 const Reg16 = Object.freeze({
     SP: 0, // stack pointer
     PC: 1, // program counter,
-    CONSTANT: 2
+    CONSTANT: 2,
+    MEMORY: 3
 });
 
 /**
@@ -59,7 +60,7 @@ const CPU = {
     reg8: new Uint8Array(8), // 8 bit registers
     reg16: new Uint16Array(2), // 16 bit registers
     PCinc: 0,
-    stopped: false,
+    stopped: true,
 
     setFlag(flag, value) {
         if (value == 1)
@@ -80,20 +81,24 @@ const CPU = {
     },
     displayRegisters() {
         for (const reg of Object.keys(Reg8)) {
-            const row = register8Table.querySelector('#' + reg).childNodes; // children of the row are the cells
             const value = this.reg8[Reg8[reg]];
+            if (value == undefined) break;
 
-            row[1].innerHTML = '0b' + value.toString(2).padStart(8, '0');
-            row[2].innerHTML = '0x' + value.toString(16).padStart(2, '0');
+            const row = register8Table.querySelector('#' + reg).childNodes; // children of the row are the cells
+
+            row[1].innerHTML = '0b' + value.toString(2).toUpperCase().padStart(8, '0');
+            row[2].innerHTML = '0x' + value.toString(16).toUpperCase().padStart(2, '0');
             row[3].innerHTML = value;
         }
 
         for (const reg of Object.keys(Reg16)) {
-            const row = register16Table.querySelector('#' + reg).childNodes; // children of the row are the cells
             const value = this.reg16[Reg16[reg]];
+            if (value == undefined) break;
 
-            row[1].innerHTML = '0b' + value.toString(2).padStart(8, '0');
-            row[2].innerHTML = '0x' + value.toString(16).padStart(2, '0');
+            const row = register16Table.querySelector('#' + reg).childNodes; // children of the row are the cells
+
+            row[1].innerHTML = '0b' + value.toString(2).toUpperCase().padStart(16, '0');
+            row[2].innerHTML = '0x' + value.toString(16).toUpperCase().padStart(4, '0');
             row[3].innerHTML = value;
         }
     },
@@ -113,7 +118,7 @@ const CPU = {
      * @param {Reg8} reg2 Second 8 bit register (should be adjacent to first)
      */
     combinedRegRead(reg1, reg2) {
-        return this.reg8[reg1] << 8 + this.reg8[reg2];
+        return (this.reg8[reg1] << 8) + this.reg8[reg2];
     },
     getHL() {
         return this.combinedRegRead(Reg8.H, Reg8.L);
@@ -121,11 +126,17 @@ const CPU = {
     nop() {
         return () => 1; // return function that returns 1 so that PC is incremented
     },
-    stop() {
-        return () => {
+    // if stop is being used in instruction lookup table (default), return instruction
+    stop(inLUT = true) {
+        const instr = () => {
             this.stopped = true;
+
+            startButton.background = 'green';
+            startButton.value = 'Start';
+
             return 1;
         };
+        return inLUT ? instr : instr();
     },
     halt() {
         // for now, halt just stops the cpu
@@ -180,10 +191,44 @@ const CPU = {
                 };
         }
         // if no special cases, load simple reg8 into reg8
-        this.reg8[dest] = this.reg8[src];
+        return () => {
+            this.reg8[dest] = this.reg8[src];
+            return 1;
+        }
     },
-    ld16() {
+    // dest is the first register in a 2 byte reg pair (B -> BC, D -> DE)
+    ld16(dest, src) {
+        if (src == Reg16.CONSTANT) {
+            if (dest == Reg16.SP) {
+                return (imm16_h, imm16_l) => {
+                    this.reg16[Reg16.SP] = (imm16_h << 8) + imm16_l;
+    
+                    return 3; // skip instruction, imm16_h, imm16_l
+                }
+            } else {
+                return (imm16_h, imm16_l) => {
+                    this.combinedRegWrite(dest, dest + 1, (imm16_h << 8) + imm16_l);
+    
+                    return 3;
+                }
+            }
+        } else {
+            if (dest == Reg16.SP) {
+                return () => {
+                    this.reg16[Reg16.SP] = this.combinedRegRead(Reg8.H, Reg8.L);
+    
+                    return 1; // skip instruction
+                }
+            }
+        }
+    },
+    ldSP() { // loads the value of the stack pointer into the memory defined by next two bytes
+        return (addr_h, addr_l) => {
+            RAM.write(addr_h, this.reg16[Reg16.SP] >> 8);
+            RAM.write(addr_l, this.reg16[Reg16.SP] & 0xFF);
 
+            return 3;
+        }
     },
     add8(register, addend, carry = false, subtract = false) {
         if (addend == Reg8.HL_ADDRESS) {
@@ -328,6 +373,8 @@ const CPU = {
 
 function generateRegisterTable() {
     for (const reg of Object.keys(Reg8)) { // loop through all 8-bit registers
+        if (Reg8[reg] > CPU.reg8.length - 1) break;
+
         const row = document.createElement('tr'); // make a row for each reg
         row.id = reg; // create ID so we can index it later
 
@@ -342,6 +389,8 @@ function generateRegisterTable() {
     }
 
     for (const reg of Object.keys(Reg16)) { // loop through all 16-bit registers
+        if (Reg16[reg] > CPU.reg16.length - 1) break;
+        
         const row = document.createElement('tr'); // make a row for each reg
         row.id = reg; // create ID so we can index it later
 

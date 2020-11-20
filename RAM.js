@@ -1,4 +1,4 @@
-const RAM = new Uint8Array(0xFFFF);
+const RAM = new Uint8Array(0x10000);
 
 // Memory map base offsets // span (num bytes)
 const INTERRUPT_ENABLE_REG = 0xFFFF; // 1
@@ -19,16 +19,20 @@ RAM.read = (addr) => {
     if (addr < OAM && addr >= ECHO_8kB_INTERNAL) // if accessing echo RAM, access actual ram instead
         addr -= 0x4000; // shift address down 8kB (size of the echo RAM)
     
-    if (addr > 0 && addr < RAM.length)
+    if (addr >= 0 && addr < RAM.length)
         return RAM[addr];
+    else
+        console.log('Illegal memory access! Attempted to read from', '0x' + (+addr).toString(16).toUpperCase());
 }
 
 RAM.write = (addr, val) => {
     if (addr < OAM && addr >= ECHO_8kB_INTERNAL) // if writing to echo RAM, write to actual ram instead
         addr -= 0x4000; // shift address down 8kB (size of the echo RAM)
     
-    if (addr > 0 && addr < RAM.length)
+    if (addr >= 0 && addr < RAM.length)
         RAM[addr] = val;
+    else
+        console.log('Illegal memory access! Attempted to write', val, 'to', '0x' + (+addr).toString(16).toUpperCase());
 }
 
 let ROM; // represents full memory of cartidge

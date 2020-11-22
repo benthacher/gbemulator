@@ -2,7 +2,7 @@ const RAM = new Uint8Array(0x10000);
 
 // Memory map base offsets // span (num bytes)
 const INTERRUPT_ENABLE_REG = 0xFFFF; // 1
-const OTHER_INTERNAL_RAM = 0xFF80
+const TOP_OF_STACK = 0xFF80
 const IO_PORTS = 0xFF00; // 128
 const OAM_SPAN = 0xA0; // 160
 const OAM = 0xFE00; // Sprite attribute memory, 160 (40 4 byte blocks for each sprite)

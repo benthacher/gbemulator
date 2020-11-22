@@ -494,6 +494,32 @@ const CPU = {
             }
         }
     },
+    // takes the first register of a 16 bit register pair
+    push(reg16) {
+        return () => {
+            this.reg16[Reg16.SP]--;
+            if (this.reg16[Reg16.SP] <= TOP_OF_STACK)
+                console.log('STACK OVERFLOW! (he said the thing!)');
+            else
+                RAM.write(this.reg16[Reg16.SP], this.reg8[reg16]); // put high byte of reg pair into SP - 1
+            
+            this.reg16[Reg16.SP]--;
+            RAM.write(this.reg16[Reg16.SP], this.reg8[reg16 + 1]); // put lower byte of reg pair into SP - 2
+
+            return 1;
+        }
+    },
+    // takes the first register of a 16 bit register pair
+    pop(reg16) {
+        return () => {
+            this.reg8[reg16 + 1] = RAM.read(this.reg16[Reg16.SP]); // put contents at SP into low byte of reg pair
+            this.reg16[Reg16.SP]++;
+            this.reg8[reg16] = RAM.write(this.reg16[Reg16.SP]); // put contents at SP + 1 into high byte of reg pair
+            this.reg16[Reg16.SP]++;
+
+            return 1;
+        }
+    },
     rotate(reg8, left, carry) {
         if (reg8 == Reg8.HL_ADDRESS) {
             if (left) {

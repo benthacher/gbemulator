@@ -173,8 +173,8 @@ const CPU = {
                     return 1;
                 };
             case Reg8.MEMORY:
-                return (addr_high, addr_low) => {
-                    RAM.write(RAM.read((addr_high << 8) + addr_low), this.reg8[src]);
+                return (addr_h, addr_l) => {
+                    RAM.write(RAM.read((addr_h << 8) + addr_l), this.reg8[src]);
                     return 1;
                 };
         }
@@ -195,8 +195,8 @@ const CPU = {
                     return 1;
                 };
             case Reg8.MEMORY:
-                return (addr_high, addr_low) => {
-                    this.reg8[dest] = RAM.read((addr_high << 8) + addr_low);
+                return (addr_h, addr_l) => {
+                    this.reg8[dest] = RAM.read((addr_h << 8) + addr_l);
                     return 1;
                 };
         }
@@ -569,6 +569,98 @@ const CPU = {
                         
                         return 0; // return zero, as the instruction at PC needs to be executed next
                     } else return 1; // else, do nothing and increment PC as normal to get to next instruction
+                };
+        }
+    },
+    call(callCondition) {
+        switch (callCondition) {
+            case null:
+                return (addr_l, addr_h) => {
+                    // push PC + 1 onto stack
+                    this.reg16[Reg16.SP]--;
+                    if (this.reg16[Reg16.SP] <= TOP_OF_STACK)
+                        console.log('STACK OVERFLOW! (he said the thing!)');
+                    else
+                        RAM.write(this.reg16[Reg16.SP], (this.reg16[Reg16.PC] + 1) >> 8); // put high byte of PC + 1 into SP - 1
+                    
+                    this.reg16[Reg16.SP]--;
+                    RAM.write(this.reg16[Reg16.SP], (this.reg16[Reg16.PC] + 1) & 0xFF); // put lower byte of PC + 1 into SP - 2
+
+                    this.reg16[Reg16.PC] = (addr_h << 8) + addr_l;
+
+                    return 0; // return zero, as the instruction at PC needs to be executed next
+                };
+            case JumpCondition.Z:
+                return (addr_l, addr_h) => {
+                    if (this.getFlag(Flag.Z)) {
+                        // push PC + 1 onto stack
+                        this.reg16[Reg16.SP]--;
+                        if (this.reg16[Reg16.SP] <= TOP_OF_STACK)
+                            console.log('STACK OVERFLOW! (he said the thing!)');
+                        else
+                            RAM.write(this.reg16[Reg16.SP], (this.reg16[Reg16.PC] + 1) >> 8); // put high byte of PC + 1 into SP - 1
+                        
+                        this.reg16[Reg16.SP]--;
+                        RAM.write(this.reg16[Reg16.SP], (this.reg16[Reg16.PC] + 1) & 0xFF); // put lower byte of PC + 1 into SP - 2
+
+                        this.reg16[Reg16.PC] = (addr_h << 8) + addr_l;
+
+                        return 0; // return zero, as the instruction at PC needs to be executed next
+                    } else return 1;
+                };
+            case JumpCondition.NZ:
+                return (addr_l, addr_h) => {
+                    if (!this.getFlag(Flag.Z)) {
+                        // push PC + 1 onto stack
+                        this.reg16[Reg16.SP]--;
+                        if (this.reg16[Reg16.SP] <= TOP_OF_STACK)
+                            console.log('STACK OVERFLOW! (he said the thing!)');
+                        else
+                            RAM.write(this.reg16[Reg16.SP], (this.reg16[Reg16.PC] + 1) >> 8); // put high byte of PC + 1 into SP - 1
+                        
+                        this.reg16[Reg16.SP]--;
+                        RAM.write(this.reg16[Reg16.SP], (this.reg16[Reg16.PC] + 1) & 0xFF); // put lower byte of PC + 1 into SP - 2
+
+                        this.reg16[Reg16.PC] = (addr_h << 8) + addr_l;
+
+                        return 0; // return zero, as the instruction at PC needs to be executed next
+                    } else return 1;
+                };
+            case JumpCondition.C:
+                return (addr_l, addr_h) => {
+                    if (this.getFlag(Flag.C)) {
+                        // push PC + 1 onto stack
+                        this.reg16[Reg16.SP]--;
+                        if (this.reg16[Reg16.SP] <= TOP_OF_STACK)
+                            console.log('STACK OVERFLOW! (he said the thing!)');
+                        else
+                            RAM.write(this.reg16[Reg16.SP], (this.reg16[Reg16.PC] + 1) >> 8); // put high byte of PC + 1 into SP - 1
+                        
+                        this.reg16[Reg16.SP]--;
+                        RAM.write(this.reg16[Reg16.SP], (this.reg16[Reg16.PC] + 1) & 0xFF); // put lower byte of PC + 1 into SP - 2
+
+                        this.reg16[Reg16.PC] = (addr_h << 8) + addr_l;
+
+                        return 0; // return zero, as the instruction at PC needs to be executed next
+                    } else return 1;
+                };
+            case JumpCondition.NC:
+                return (addr_l, addr_h) => {
+                    if (!this.getFlag(Flag.C)) {
+                        // push PC + 1 onto stack
+                        this.reg16[Reg16.SP]--;
+                        if (this.reg16[Reg16.SP] <= TOP_OF_STACK)
+                            console.log('STACK OVERFLOW! (he said the thing!)');
+                        else
+                            RAM.write(this.reg16[Reg16.SP], (this.reg16[Reg16.PC] + 1) >> 8); // put high byte of PC + 1 into SP - 1
+                        
+                        this.reg16[Reg16.SP]--;
+                        RAM.write(this.reg16[Reg16.SP], (this.reg16[Reg16.PC] + 1) & 0xFF); // put lower byte of PC + 1 into SP - 2
+
+                        this.reg16[Reg16.PC] = (addr_h << 8) + addr_l;
+
+                        return 0; // return zero, as the instruction at PC needs to be executed next
+                    } else return 1;
                 };
         }
     },

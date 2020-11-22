@@ -514,10 +514,62 @@ const CPU = {
         return () => {
             this.reg8[reg16 + 1] = RAM.read(this.reg16[Reg16.SP]); // put contents at SP into low byte of reg pair
             this.reg16[Reg16.SP]++;
-            this.reg8[reg16] = RAM.write(this.reg16[Reg16.SP]); // put contents at SP + 1 into high byte of reg pair
+            this.reg8[reg16] = RAM.read(this.reg16[Reg16.SP]); // put contents at SP + 1 into high byte of reg pair
             this.reg16[Reg16.SP]++;
 
             return 1;
+        }
+    },
+    ret(returnCondition) {
+        switch (returnCondition) {
+            case null:
+                return () => {
+                    // put value at SP into PC (SP -> low byte, SP + 1 -> high byte)
+                    this.reg16[Reg16.PC] = (RAM.read(this.reg16[Reg16.SP] + 1) << 8) + RAM.read(this.reg16[Reg16.SP]);
+                    this.reg16[Reg16.SP] += 2; // increment SP by 2, maintaining stack order
+
+                    return 0; // return zero, as the instruction at PC needs to be executed next
+                };
+            case JumpCondition.Z:
+                return () => {
+                    if (this.getFlag(Flag.Z)) {
+                        // put value at SP into PC (SP -> low byte, SP + 1 -> high byte)
+                        this.reg16[Reg16.PC] = (RAM.read(this.reg16[Reg16.SP] + 1) << 8) + RAM.read(this.reg16[Reg16.SP]);
+                        this.reg16[Reg16.SP] += 2; // increment SP by 2, maintaining stack order
+                        
+                        return 0; // return zero, as the instruction at PC needs to be executed next
+                    } else return 1; // else, do nothing and increment PC as normal to get to next instruction
+                };
+            case JumpCondition.NZ:
+                return () => {
+                    if (!this.getFlag(Flag.Z)) {
+                        // put value at SP into PC (SP -> low byte, SP + 1 -> high byte)
+                        this.reg16[Reg16.PC] = (RAM.read(this.reg16[Reg16.SP] + 1) << 8) + RAM.read(this.reg16[Reg16.SP]);
+                        this.reg16[Reg16.SP] += 2; // increment SP by 2, maintaining stack order
+                        
+                        return 0; // return zero, as the instruction at PC needs to be executed next
+                    } else return 1; // else, do nothing and increment PC as normal to get to next instruction
+                };
+            case JumpCondition.C:
+                return () => {
+                    if (this.getFlag(Flag.C)) {
+                        // put value at SP into PC (SP -> low byte, SP + 1 -> high byte)
+                        this.reg16[Reg16.PC] = (RAM.read(this.reg16[Reg16.SP] + 1) << 8) + RAM.read(this.reg16[Reg16.SP]);
+                        this.reg16[Reg16.SP] += 2; // increment SP by 2, maintaining stack order
+                        
+                        return 0; // return zero, as the instruction at PC needs to be executed next
+                    } else return 1; // else, do nothing and increment PC as normal to get to next instruction
+                };
+            case JumpCondition.NC:
+                return () => {
+                    if (!this.getFlag(Flag.C)) {
+                        // put value at SP into PC (SP -> low byte, SP + 1 -> high byte)
+                        this.reg16[Reg16.PC] = (RAM.read(this.reg16[Reg16.SP] + 1) << 8) + RAM.read(this.reg16[Reg16.SP]);
+                        this.reg16[Reg16.SP] += 2; // increment SP by 2, maintaining stack order
+                        
+                        return 0; // return zero, as the instruction at PC needs to be executed next
+                    } else return 1; // else, do nothing and increment PC as normal to get to next instruction
+                };
         }
     },
     rotate(reg8, left, carry) {

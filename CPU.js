@@ -243,29 +243,49 @@ const CPU = {
     // dec argument allows this function to work as decrement as well
     inc8(reg, dec = false) {
         if (reg == Reg8.HL_ADDRESS) {
-            return () => {
+            return dec ? () => {
                 const HLvalue = this.getHL();
                 const ramValue = RAM.read(HLvalue);
-                const res = ramValue + (dec ? -1 : 1)
+                const res = (ramValue - 1) & 0xFF;
                 RAM.write(HLvalue, res);
 
                 this.setFlag(Flag.Z, res == 0);
-                this.setFlag(Flag.N, dec);
-                this.setHalfCarry(ramValue, (dec ? -1 : 1));
+                this.setFlag(Flag.N, 1);
+                this.setHalfCarry(ramValue, -1);
+
+                return 1;
+            } : () => {
+                const HLvalue = this.getHL();
+                const ramValue = RAM.read(HLvalue);
+                const res = (ramValue + 1) & 0xFF;
+                RAM.write(HLvalue, res);
+
+                this.setFlag(Flag.Z, res == 0);
+                this.setFlag(Flag.N, 0);
+                this.setHalfCarry(ramValue, 1);
 
                 return 1;
             }
         } else {
-            return () => {
+            return dec ? () => {
                 const regValue = this.reg8[reg];
-                const res = regValue += dec ? -1 : 1;
+                const res = --this.reg8[reg];
 
                 this.setFlag(Flag.Z, res == 0);
-                this.setFlag(Flag.N, dec);
-                this.setHalfCarry(regValue, (dec ? -1 : 1));
+                this.setFlag(Flag.N, 1);
+                this.setHalfCarry(regValue, -1);
 
                 return 1;
-            }
+            } : () => {
+                const regValue = this.reg8[reg];
+                const res = ++this.reg8[reg];
+
+                this.setFlag(Flag.Z, res == 0);
+                this.setFlag(Flag.N, 0);
+                this.setHalfCarry(regValue, 1);
+
+                return 1;
+            };
         }
     },
     // dec argument allows this function to work as decrement as well
@@ -370,57 +390,260 @@ const CPU = {
             }
         }
     },
-    rotate(reg8, left, carry) {
+    and(reg8) {
         if (reg8 == Reg8.HL_ADDRESS) {
             return () => {
-                let HLdata = RAM.read(this.getHL());
-                const rotatedBit = HLdata & (left ? (1 << 7) : 1); // depending on direction (left or right), save bit 0 or 7
-
-                if (left)
-                    HLdata = (HLdata << 1) & 0xFF; // shift left once, cut off bit 8
-                else
-                    HLdata >>= 1; // shift right once
-
-                if (carry) { // if carry, put the rotatedBit into bit0/7
-                    if (rotatedBit)
-                        HLdata |= left ? 1 : (1 << 7); // if rotated bit was 1, add it back to the right/left side
-                } else { // if not carry, put the previous carry bit into bit0/7
-                    if (this.getFlag(Flag.C))
-                        HLdata |= left ? 1 : (1 << 7); // if rotated bit was 1, add it back to the right/left side
-                }
+                this.reg8[Reg8.A] &= RAM.read(this.getHL());
                 
-                RAM.write(this.getHL(), HLdata); 
-
-                this.setFlag(Flag.Z, HLdata == 0);
+                this.setFlag(Flag.Z, this.reg8[Reg8.A] == 0);
                 this.setFlag(Flag.N, 0);
-                this.setFlag(Flag.H, 0);
-                this.setFlag(Flag.C, rotatedBit);
+                this.setFlag(Flag.H, 1);
+                this.setFlag(Flag.C, 0);
 
                 return 1;
             }
         } else {
             return () => {
-                const rotatedBit = this.reg8[reg8] & (left ? (1 << 7) : 1); // depending on direction (left or right), save bit 0 or 7
-
-                if (left)
-                    this.reg8[reg8] <<= 1;
-                else
-                    this.reg8[reg8] >>= 1;
-
-                if (carry) { // copy rotated bit into carry flag
-                    if (rotatedBit)
-                        this.reg8[reg8] |= left ? 1 : (1 << 7); // if rotated bit was 1, add it back to the right/left side
-                } else {
-                    if (this.getFlag(Flag.C))
-                        this.reg8[reg8] |= left ? 1 : (1 << 7); // if rotated bit was 1, add it back to the right/left side
-                }
-
-                this.setFlag(Flag.Z, this.reg8[reg8] == 0);
+                this.reg8[Reg8.A] &= this.reg8[reg8];
+                
+                this.setFlag(Flag.Z, this.reg8[Reg8.A] == 0);
                 this.setFlag(Flag.N, 0);
-                this.setFlag(Flag.H, 0);
-                this.setFlag(Flag.C, rotatedBit);
+                this.setFlag(Flag.H, 1);
+                this.setFlag(Flag.C, 0);
 
                 return 1;
+            }
+        }
+    },
+    or(reg8) {
+        if (reg8 == Reg8.HL_ADDRESS) {
+            return () => {
+                this.reg8[Reg8.A] |= RAM.read(this.getHL());
+                
+                this.setFlag(Flag.Z, this.reg8[Reg8.A] == 0);
+                this.setFlag(Flag.N, 0);
+                this.setFlag(Flag.H, 0);
+                this.setFlag(Flag.C, 0);
+
+                return 1;
+            }
+        } else {
+            return () => {
+                this.reg8[Reg8.A] |= this.reg8[reg8];
+                
+                this.setFlag(Flag.Z, this.reg8[Reg8.A] == 0);
+                this.setFlag(Flag.N, 0);
+                this.setFlag(Flag.H, 0);
+                this.setFlag(Flag.C, 0);
+
+                return 1;
+            }
+        }
+    },
+    xor(reg8) {
+        if (reg8 == Reg8.HL_ADDRESS) {
+            return () => {
+                this.reg8[Reg8.A] ^= RAM.read(this.getHL());
+                
+                this.setFlag(Flag.Z, this.reg8[Reg8.A] == 0);
+                this.setFlag(Flag.N, 0);
+                this.setFlag(Flag.H, 0);
+                this.setFlag(Flag.C, 0);
+
+                return 1;
+            }
+        } else {
+            return () => {
+                this.reg8[Reg8.A] ^= this.reg8[reg8];
+                
+                this.setFlag(Flag.Z, this.reg8[Reg8.A] == 0);
+                this.setFlag(Flag.N, 0);
+                this.setFlag(Flag.H, 0);
+                this.setFlag(Flag.C, 0);
+
+                return 1;
+            }
+        }
+    },
+    cp(reg8) {
+        if (reg8 == Reg8.HL_ADDRESS) {
+            return () => {
+                let Avalue = this.reg8[Reg8.A];
+                const ramValue = RAM.read(this.getHL());
+                Avalue -= ramValue;
+                
+                this.setFlag(Flag.Z, Avalue == 0);
+                this.setFlag(Flag.N, 1);
+                this.setHalfCarry(this.reg8[Reg8.A], -ramValue);
+                this.setCarry(this.reg8[Reg8.A], -ramValue);
+
+                return 1;
+            }
+        } else {
+            return () => {
+                let Avalue = this.reg8[Reg8.A];
+                const regValue = this.reg8[reg8];
+                Avalue -= regValue;
+                
+                this.setFlag(Flag.Z, Avalue == 0);
+                this.setFlag(Flag.N, 1);
+                this.setHalfCarry(this.reg8[Reg8.A], -regValue);
+                this.setCarry(this.reg8[Reg8.A], -regValue);
+
+                return 1;
+            }
+        }
+    },
+    rotate(reg8, left, carry) {
+        if (reg8 == Reg8.HL_ADDRESS) {
+            if (left) {
+                if (carry) {
+                    return () => {
+                        let HLdata = RAM.read(this.getHL());
+                        const rotatedBit = HLdata & (1 << 7);
+                        HLdata = (HLdata << 1) & 0xFF; // shift left once, cut off bit 8
+
+                        if (rotatedBit)
+                            HLdata |= left ? 1 : (1 << 7); // if rotated bit was 1, add it back to the right/left side
+                        
+                        RAM.write(this.getHL(), HLdata); 
+
+                        this.setFlag(Flag.Z, HLdata == 0);
+                        this.setFlag(Flag.N, 0);
+                        this.setFlag(Flag.H, 0);
+                        this.setFlag(Flag.C, rotatedBit);
+
+                        return 1;
+                    }
+                } else {
+                    return () => {
+                        let HLdata = RAM.read(this.getHL());
+                        const rotatedBit = HLdata & (1 << 7);
+                        HLdata = (HLdata << 1) & 0xFF; // shift left once, cut off bit 8
+
+                        if (this.getFlag(Flag.C))
+                            HLdata |= left ? 1 : (1 << 7); // if rotated bit was 1, add it back to the right/left side
+                        
+                        RAM.write(this.getHL(), HLdata); 
+
+                        this.setFlag(Flag.Z, HLdata == 0);
+                        this.setFlag(Flag.N, 0);
+                        this.setFlag(Flag.H, 0);
+                        this.setFlag(Flag.C, rotatedBit);
+
+                        return 1;
+                    }
+                }
+            } else {
+                if (carry) {
+                    return () => {
+                        let HLdata = RAM.read(this.getHL());
+                        const rotatedBit = HLdata & 1; // depending on direction (left or right), save bit 0 or 7
+
+                        HLdata >>= 1; // shift right once
+
+                        if (rotatedBit)
+                            HLdata |= left ? 1 : (1 << 7); // if rotated bit was 1, add it back to the right/left side
+                        
+                        RAM.write(this.getHL(), HLdata); 
+
+                        this.setFlag(Flag.Z, HLdata == 0);
+                        this.setFlag(Flag.N, 0);
+                        this.setFlag(Flag.H, 0);
+                        this.setFlag(Flag.C, rotatedBit);
+
+                        return 1;
+                    }
+                } else {
+                    return () => {
+                        let HLdata = RAM.read(this.getHL());
+                        const rotatedBit = HLdata & 1; // depending on direction (left or right), save bit 0 or 7
+
+                        HLdata >>= 1; // shift right once
+
+                        if (this.getFlag(Flag.C))
+                            HLdata |= left ? 1 : (1 << 7); // if rotated bit was 1, add it back to the right/left side
+                        
+                        RAM.write(this.getHL(), HLdata); 
+
+                        this.setFlag(Flag.Z, HLdata == 0);
+                        this.setFlag(Flag.N, 0);
+                        this.setFlag(Flag.H, 0);
+                        this.setFlag(Flag.C, rotatedBit);
+
+                        return 1;
+                    }   
+                }
+            }
+        } else {
+            if (left) {
+                if (carry) {
+                    return () => {
+                        const rotatedBit = this.reg8[reg8] & (1 << 7); // depending on direction (left or right), save bit 0 or 7
+
+                        this.reg8[reg8] <<= 1;
+
+                        if (rotatedBit)
+                            this.reg8[reg8] |= left ? 1 : (1 << 7); // if rotated bit was 1, add it back to the right/left side
+
+                        this.setFlag(Flag.Z, this.reg8[reg8] == 0);
+                        this.setFlag(Flag.N, 0);
+                        this.setFlag(Flag.H, 0);
+                        this.setFlag(Flag.C, rotatedBit);
+
+                        return 1;
+                    }
+                } else {
+                    return () => {
+                        const rotatedBit = this.reg8[reg8] & (1 << 7); // depending on direction (left or right), save bit 0 or 7
+
+                        this.reg8[reg8] <<= 1;
+
+                        if (this.getFlag(Flag.C))
+                            this.reg8[reg8] |= left ? 1 : (1 << 7); // if rotated bit was 1, add it back to the right/left side
+
+                        this.setFlag(Flag.Z, this.reg8[reg8] == 0);
+                        this.setFlag(Flag.N, 0);
+                        this.setFlag(Flag.H, 0);
+                        this.setFlag(Flag.C, rotatedBit);
+
+                        return 1;
+                    }
+                }
+            } else {
+                if (carry) {
+                    return () => {
+                        const rotatedBit = this.reg8[reg8] & 1; // depending on direction (left or right), save bit 0 or 7
+
+                        this.reg8[reg8] >>= 1;
+
+                        if (rotatedBit)
+                            this.reg8[reg8] |= left ? 1 : (1 << 7); // if rotated bit was 1, add it back to the right/left side
+                    
+                        this.setFlag(Flag.Z, this.reg8[reg8] == 0);
+                        this.setFlag(Flag.N, 0);
+                        this.setFlag(Flag.H, 0);
+                        this.setFlag(Flag.C, rotatedBit);
+
+                        return 1;
+                    }
+                } else {
+                    return () => {
+                        const rotatedBit = this.reg8[reg8] & 1; // depending on direction (left or right), save bit 0 or 7
+
+                        this.reg8[reg8] >>= 1;
+
+                        if (this.getFlag(Flag.C))
+                            this.reg8[reg8] |= left ? 1 : (1 << 7); // if rotated bit was 1, add it back to the right/left side
+
+                        this.setFlag(Flag.Z, this.reg8[reg8] == 0);
+                        this.setFlag(Flag.N, 0);
+                        this.setFlag(Flag.H, 0);
+                        this.setFlag(Flag.C, rotatedBit);
+
+                        return 1;
+                    }
+                }
             }
         }
     },

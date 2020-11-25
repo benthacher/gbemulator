@@ -155,6 +155,19 @@ const CPU = {
             return 1;
         }
     },
+    // converts data in A register to binary coded decimal
+    daa() {
+        return () => {
+            let Adata = this.reg8[Reg8.A];
+
+            const tensPlace = Math.floor(Adata / 10) % 10;
+            const onesPlace = Adata % 10;
+
+            this.reg8[Reg8.A] = (tensPlace << 4) + onesPlace;
+
+            return 1;
+        }
+    },
     ld8(dest, src) {
         switch (dest) {
             case Reg8.HL_ADDRESS:

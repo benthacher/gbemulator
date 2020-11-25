@@ -90,3 +90,5 @@ CPU.doCycle = function() {
     this.reg16[Reg16.PC] += this.PCinc;
     this.displayRegisters();
 };
+
+document.querySelector('#opcode-generation-message').style.display = 'none';

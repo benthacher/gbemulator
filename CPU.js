@@ -196,6 +196,29 @@ const CPU = {
             return 1;
         }
     },
+    ei() {
+        return () => {
+            this.IME = true;
+            return 1;
+        }
+    },
+    di() {
+        return () => {
+            this.IME = false;
+            return 1;
+        }
+    },
+    reti() {
+        const instr = this.ret(null);
+        return () => {
+            this.IME = true; // enable interrupts and return normally
+            return instr();
+        }
+    },
+    rst(addr) {
+        const instr = this.jump(false); // jump with no condition
+        return () => instr(addr); // call the jump instruction to address specified as method parameter
+    },
     ld8(dest, src) {
         switch (dest) {
             case Reg8.HL_ADDRESS:
@@ -552,7 +575,7 @@ const CPU = {
     },
     ret(returnCondition) {
         switch (returnCondition) {
-            case null:
+            case undefined:
                 return () => {
                     // put value at SP into PC (SP -> low byte, SP + 1 -> high byte)
                     this.reg16[Reg16.PC] = (RAM.read(this.reg16[Reg16.SP] + 1) << 8) + RAM.read(this.reg16[Reg16.SP]);

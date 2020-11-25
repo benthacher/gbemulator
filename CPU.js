@@ -47,10 +47,10 @@ const Reg16 = Object.freeze({
  * @typedef {number} Flag
  */
 const Flag = Object.freeze({
-    Z: 7,
-    N: 6,
-    H: 5,
-    C: 4
+    Z: 1 << 7,
+    N: 1 << 6,
+    H: 1 << 5,
+    C: 1 << 4
 });
 
 /**
@@ -70,24 +70,25 @@ const CPU = {
     reg8: new Uint8Array(8), // 8 bit registers
     reg16: new Uint16Array(2), // 16 bit registers
     PCinc: 0,
+    IME: false,
     stopped: true,
 
-    setFlag(flag, value) {
+    setFlags(flag, value) {
         if (value)
-            this.reg8[Reg8.F] |= 1 << flag;
+            this.reg8[Reg8.F] |= flag;
         else
-            this.reg8[Reg8.F] &= ~(1 << flag);
+            this.reg8[Reg8.F] &= ~flag;
     },
     getFlag(flag) {
-        return this.reg8[Reg8.F] & (1 << flag) != 0;
+        return (this.reg8[Reg8.F] & flag) != 0;
     },
     setHalfCarry(addend1, addend2) {
         // set half carry flag if the sum of the lower nibbles is greater than 0b1111 (a half carry occured)
-        this.setFlag(Flag.H, ((addend1 & 0xF) + (addend2 & 0xF)) > 0xF);
+        this.setFlags(Flag.H, ((addend1 & 0xF) + (addend2 & 0xF)) > 0xF);
     },
     setCarry(addend1, addend2) {
         // set carry flag if the sum of the two values is greater than 0b11111111 (a carry occured)
-        this.setFlag(Flag.C, ((addend1 & 0xFF) + (addend2 & 0xFF)) > 0xFF);
+        this.setFlags(Flag.C, ((addend1 & 0xFF) + (addend2 & 0xFF)) > 0xFF);
     },
     displayRegisters() {
         for (const reg of Object.keys(Reg8)) {
@@ -155,6 +156,29 @@ const CPU = {
             return 1;
         }
     },
+    scf() {
+        return () => {
+            this.setFlags(Flag.C, 1);
+            this.setFlags(Flag.N + Flag.H, 0);
+            return 1;
+        }
+    },
+    ccf() {
+        return () => {
+            this.reg8[Reg8.F] ^= Flag.C; // flip carry flag
+            this.setFlags(Flag.N + Flag.H, 0);
+            return 1;
+        }
+    },
+    cpl() {
+        return () => {
+            this.reg8[Reg8.A] = ~this.reg8[Reg8.A]; // flip bits of A reg
+
+            this.setFlags(Flag.N + Flag.H, 0);
+
+            return 1;
+        }
+    },
     // converts data in A register to binary coded decimal
     daa() {
         return () => {
@@ -164,6 +188,10 @@ const CPU = {
             const onesPlace = Adata % 10;
 
             this.reg8[Reg8.A] = (tensPlace << 4) + onesPlace;
+
+            this.setFlags(Flag.Z, this.reg8[Reg8.A] == 0);
+            this.setFlags(Flag.H, 0);
+            // this.setFlags Carry???
 
             return 1;
         }
@@ -262,8 +290,8 @@ const CPU = {
                 const res = (ramValue - 1) & 0xFF;
                 RAM.write(HLvalue, res);
 
-                this.setFlag(Flag.Z, res == 0);
-                this.setFlag(Flag.N, 1);
+                this.setFlags(Flag.Z, res == 0);
+                this.setFlags(Flag.N, 1);
                 this.setHalfCarry(ramValue, -1);
 
                 return 1;
@@ -273,8 +301,8 @@ const CPU = {
                 const res = (ramValue + 1) & 0xFF;
                 RAM.write(HLvalue, res);
 
-                this.setFlag(Flag.Z, res == 0);
-                this.setFlag(Flag.N, 0);
+                this.setFlags(Flag.Z, res == 0);
+                this.setFlags(Flag.N, 0);
                 this.setHalfCarry(ramValue, 1);
 
                 return 1;
@@ -284,8 +312,8 @@ const CPU = {
                 const regValue = this.reg8[reg];
                 const res = --this.reg8[reg];
 
-                this.setFlag(Flag.Z, res == 0);
-                this.setFlag(Flag.N, 1);
+                this.setFlags(Flag.Z, res == 0);
+                this.setFlags(Flag.N, 1);
                 this.setHalfCarry(regValue, -1);
 
                 return 1;
@@ -293,8 +321,8 @@ const CPU = {
                 const regValue = this.reg8[reg];
                 const res = ++this.reg8[reg];
 
-                this.setFlag(Flag.Z, res == 0);
-                this.setFlag(Flag.N, 0);
+                this.setFlags(Flag.Z, res == 0);
+                this.setFlags(Flag.N, 0);
                 this.setHalfCarry(regValue, 1);
 
                 return 1;
@@ -323,8 +351,8 @@ const CPU = {
                 const ramValue = (RAM.read(this.getHL()) + carry * this.getFlag(Flag.C)) * (subtract ? -1 : 1);
                 const res = this.reg8[register] += ramValue;
                 
-                this.setFlag(Flag.Z, res == 0);
-                this.setFlag(Flag.N, subtract);
+                this.setFlags(Flag.Z, res == 0);
+                this.setFlags(Flag.N, subtract);
                 this.setHalfCarry(regValue, ramValue);
                 this.setCarry(regValue, ramValue);
 
@@ -337,8 +365,8 @@ const CPU = {
                 imm8 = (imm8 + carry * this.getFlag(Flag.C)) * (subtract ? -1 : 1)
                 const res = this.reg8[register] += imm8;
                 
-                this.setFlag(Flag.Z, res == 0);
-                this.setFlag(Flag.N, subtract);
+                this.setFlags(Flag.Z, res == 0);
+                this.setFlags(Flag.N, subtract);
                 this.setHalfCarry(regValue, imm8);
                 this.setCarry(regValue, imm8);
 
@@ -351,8 +379,8 @@ const CPU = {
                 const addValue = (this.reg8[addend] + carry * this.getFlag(Flag.C)) * (subtract ? -1 : 1);
                 const res = this.reg8[register] += addValue;
                 
-                this.setFlag(Flag.Z, res == 0);
-                this.setFlag(Flag.N, subtract);
+                this.setFlags(Flag.Z, res == 0);
+                this.setFlags(Flag.N, subtract);
                 this.setHalfCarry(regValue, addValue);
                 this.setCarry(regValue, addValue);
 
@@ -366,8 +394,7 @@ const CPU = {
             
             this.reg16[Reg16.SP] += imm8;
             
-            this.setFlag(Flag.Z, 0);
-            this.setFlag(Flag.N, 0);
+            this.setFlags(Flag.Z + Flag.N, 0);
             this.setHalfCarry(regValue, imm8);
             this.setCarry(regValue, imm8);
             
@@ -380,7 +407,7 @@ const CPU = {
                 const HLvalue = this.getHL();
                 const regValue = this.combinedRegRead(reg16, reg16 + 1);
 
-                this.setFlag(Flag.N, 0);
+                this.setFlags(Flag.N, 0);
                 this.setHalfCarry(HLvalue, regValue);
                 this.setCarry(HLvalue, regValue);
 
@@ -393,7 +420,7 @@ const CPU = {
                 const HLvalue = this.getHL();
                 const regValue = this.reg16[Reg16.SP];
 
-                this.setFlag(Flag.N, 0);
+                this.setFlags(Flag.N, 0);
                 this.setHalfCarry(HLvalue, regValue);
                 this.setCarry(HLvalue, regValue);
 
@@ -408,10 +435,9 @@ const CPU = {
             return () => {
                 this.reg8[Reg8.A] &= RAM.read(this.getHL());
                 
-                this.setFlag(Flag.Z, this.reg8[Reg8.A] == 0);
-                this.setFlag(Flag.N, 0);
-                this.setFlag(Flag.H, 1);
-                this.setFlag(Flag.C, 0);
+                this.setFlags(Flag.Z, this.reg8[Reg8.A] == 0);
+                this.setFlags(Flag.N + Flag.C, 0);
+                this.setFlags(Flag.H, 1);
 
                 return 1;
             }
@@ -419,10 +445,9 @@ const CPU = {
             return () => {
                 this.reg8[Reg8.A] &= this.reg8[reg8];
                 
-                this.setFlag(Flag.Z, this.reg8[Reg8.A] == 0);
-                this.setFlag(Flag.N, 0);
-                this.setFlag(Flag.H, 1);
-                this.setFlag(Flag.C, 0);
+                this.setFlags(Flag.Z, this.reg8[Reg8.A] == 0);
+                this.setFlags(Flag.N + Flag.C, 0);
+                this.setFlags(Flag.H, 1);
 
                 return 1;
             }
@@ -433,10 +458,8 @@ const CPU = {
             return () => {
                 this.reg8[Reg8.A] |= RAM.read(this.getHL());
                 
-                this.setFlag(Flag.Z, this.reg8[Reg8.A] == 0);
-                this.setFlag(Flag.N, 0);
-                this.setFlag(Flag.H, 0);
-                this.setFlag(Flag.C, 0);
+                this.setFlags(Flag.Z, this.reg8[Reg8.A] == 0);
+                this.setFlags(Flag.N + Flag.H + Flag.C, 0);
 
                 return 1;
             }
@@ -444,10 +467,8 @@ const CPU = {
             return () => {
                 this.reg8[Reg8.A] |= this.reg8[reg8];
                 
-                this.setFlag(Flag.Z, this.reg8[Reg8.A] == 0);
-                this.setFlag(Flag.N, 0);
-                this.setFlag(Flag.H, 0);
-                this.setFlag(Flag.C, 0);
+                this.setFlags(Flag.Z, this.reg8[Reg8.A] == 0);
+                this.setFlags(Flag.N + Flag.H + Flag.C, 0);
 
                 return 1;
             }
@@ -458,10 +479,8 @@ const CPU = {
             return () => {
                 this.reg8[Reg8.A] ^= RAM.read(this.getHL());
                 
-                this.setFlag(Flag.Z, this.reg8[Reg8.A] == 0);
-                this.setFlag(Flag.N, 0);
-                this.setFlag(Flag.H, 0);
-                this.setFlag(Flag.C, 0);
+                this.setFlags(Flag.Z, this.reg8[Reg8.A] == 0);
+                this.setFlags(Flag.N + Flag.H + Flag.C, 0);
 
                 return 1;
             }
@@ -469,10 +488,8 @@ const CPU = {
             return () => {
                 this.reg8[Reg8.A] ^= this.reg8[reg8];
                 
-                this.setFlag(Flag.Z, this.reg8[Reg8.A] == 0);
-                this.setFlag(Flag.N, 0);
-                this.setFlag(Flag.H, 0);
-                this.setFlag(Flag.C, 0);
+                this.setFlags(Flag.Z, this.reg8[Reg8.A] == 0);
+                this.setFlags(Flag.N + Flag.H + Flag.C, 0);
 
                 return 1;
             }
@@ -485,8 +502,8 @@ const CPU = {
                 const ramValue = RAM.read(this.getHL());
                 Avalue -= ramValue;
                 
-                this.setFlag(Flag.Z, Avalue == 0);
-                this.setFlag(Flag.N, 1);
+                this.setFlags(Flag.Z, Avalue == 0);
+                this.setFlags(Flag.N, 1);
                 this.setHalfCarry(this.reg8[Reg8.A], -ramValue);
                 this.setCarry(this.reg8[Reg8.A], -ramValue);
 
@@ -498,8 +515,8 @@ const CPU = {
                 const regValue = this.reg8[reg8];
                 Avalue -= regValue;
                 
-                this.setFlag(Flag.Z, Avalue == 0);
-                this.setFlag(Flag.N, 1);
+                this.setFlags(Flag.Z, Avalue == 0);
+                this.setFlags(Flag.N, 1);
                 this.setHalfCarry(this.reg8[Reg8.A], -regValue);
                 this.setCarry(this.reg8[Reg8.A], -regValue);
 
@@ -691,10 +708,9 @@ const CPU = {
                         
                         RAM.write(this.getHL(), HLdata); 
 
-                        this.setFlag(Flag.Z, HLdata == 0);
-                        this.setFlag(Flag.N, 0);
-                        this.setFlag(Flag.H, 0);
-                        this.setFlag(Flag.C, rotatedBit);
+                        this.setFlags(Flag.Z, HLdata == 0);
+                        this.setFlags(Flag.N + Flag.H, 0);
+                        this.setFlags(Flag.C, rotatedBit);
 
                         return 1;
                     }
@@ -709,10 +725,9 @@ const CPU = {
                         
                         RAM.write(this.getHL(), HLdata); 
 
-                        this.setFlag(Flag.Z, HLdata == 0);
-                        this.setFlag(Flag.N, 0);
-                        this.setFlag(Flag.H, 0);
-                        this.setFlag(Flag.C, rotatedBit);
+                        this.setFlags(Flag.Z, HLdata == 0);
+                        this.setFlags(Flag.N + Flag.H, 0);
+                        this.setFlags(Flag.C, rotatedBit);
 
                         return 1;
                     }
@@ -730,10 +745,9 @@ const CPU = {
                         
                         RAM.write(this.getHL(), HLdata); 
 
-                        this.setFlag(Flag.Z, HLdata == 0);
-                        this.setFlag(Flag.N, 0);
-                        this.setFlag(Flag.H, 0);
-                        this.setFlag(Flag.C, rotatedBit);
+                        this.setFlags(Flag.Z, HLdata == 0);
+                        this.setFlags(Flag.N + Flag.H, 0);
+                        this.setFlags(Flag.C, rotatedBit);
 
                         return 1;
                     }
@@ -749,10 +763,9 @@ const CPU = {
                         
                         RAM.write(this.getHL(), HLdata); 
 
-                        this.setFlag(Flag.Z, HLdata == 0);
-                        this.setFlag(Flag.N, 0);
-                        this.setFlag(Flag.H, 0);
-                        this.setFlag(Flag.C, rotatedBit);
+                        this.setFlags(Flag.Z, HLdata == 0);
+                        this.setFlags(Flag.N + Flag.H, 0);
+                        this.setFlags(Flag.C, rotatedBit);
 
                         return 1;
                     }   
@@ -769,10 +782,9 @@ const CPU = {
                         if (rotatedBit)
                             this.reg8[reg8] |= left ? 1 : (1 << 7); // if rotated bit was 1, add it back to the right/left side
 
-                        this.setFlag(Flag.Z, this.reg8[reg8] == 0);
-                        this.setFlag(Flag.N, 0);
-                        this.setFlag(Flag.H, 0);
-                        this.setFlag(Flag.C, rotatedBit);
+                        this.setFlags(Flag.Z, this.reg8[reg8] == 0);
+                        this.setFlags(Flag.N + Flag.H, 0);
+                        this.setFlags(Flag.C, rotatedBit);
 
                         return 1;
                     }
@@ -785,10 +797,9 @@ const CPU = {
                         if (this.getFlag(Flag.C))
                             this.reg8[reg8] |= left ? 1 : (1 << 7); // if rotated bit was 1, add it back to the right/left side
 
-                        this.setFlag(Flag.Z, this.reg8[reg8] == 0);
-                        this.setFlag(Flag.N, 0);
-                        this.setFlag(Flag.H, 0);
-                        this.setFlag(Flag.C, rotatedBit);
+                        this.setFlags(Flag.Z, this.reg8[reg8] == 0);
+                        this.setFlags(Flag.N + Flag.H, 0);
+                        this.setFlags(Flag.C, rotatedBit);
 
                         return 1;
                     }
@@ -803,10 +814,9 @@ const CPU = {
                         if (rotatedBit)
                             this.reg8[reg8] |= left ? 1 : (1 << 7); // if rotated bit was 1, add it back to the right/left side
                     
-                        this.setFlag(Flag.Z, this.reg8[reg8] == 0);
-                        this.setFlag(Flag.N, 0);
-                        this.setFlag(Flag.H, 0);
-                        this.setFlag(Flag.C, rotatedBit);
+                        this.setFlags(Flag.Z, this.reg8[reg8] == 0);
+                        this.setFlags(Flag.N + Flag.H, 0);
+                        this.setFlags(Flag.C, rotatedBit);
 
                         return 1;
                     }
@@ -819,10 +829,9 @@ const CPU = {
                         if (this.getFlag(Flag.C))
                             this.reg8[reg8] |= left ? 1 : (1 << 7); // if rotated bit was 1, add it back to the right/left side
 
-                        this.setFlag(Flag.Z, this.reg8[reg8] == 0);
-                        this.setFlag(Flag.N, 0);
-                        this.setFlag(Flag.H, 0);
-                        this.setFlag(Flag.C, rotatedBit);
+                        this.setFlags(Flag.Z, this.reg8[reg8] == 0);
+                        this.setFlags(Flag.N + Flag.H, 0);
+                        this.setFlags(Flag.C, rotatedBit);
 
                         return 1;
                     }
@@ -836,7 +845,7 @@ const CPU = {
                 let HLdata = RAM.read(this.getHL());
                 // if shifting to the left, save bit7 in carry
                 // else save bit0
-                this.setFlag(Flag.C, HLdata & (left ? (1 << 7) : 1));
+                this.setFlags(Flag.C, HLdata & (left ? (1 << 7) : 1));
                 
                 if (left)
                     HLdata = (HLdata << 1) & 0xFF; // shift left once, cut off bit 8
@@ -849,15 +858,14 @@ const CPU = {
                 
                 RAM.write(this.getHL(), HLdata); 
 
-                this.setFlag(Flag.Z, HLdata == 0);
-                this.setFlag(Flag.N, 0);
-                this.setFlag(Flag.H, 0);
+                this.setFlags(Flag.Z, HLdata == 0);
+                this.setFlags(Flag.N + Flag.H, 0);
 
                 return 1;
             }
         } else {
             return () => {
-                this.setFlag(Flag.C, this.reg8[reg8] & (left ? (1 << 7) : 1));
+                this.setFlags(Flag.C, this.reg8[reg8] & (left ? (1 << 7) : 1));
 
                 if (left)
                     this.reg8[reg8] <<= 1; // shift left once, cut off bit 8
@@ -868,9 +876,8 @@ const CPU = {
                         this.reg8[reg8] >>= 1; // else just shift it normally, reseting bit 7
                 }
 
-                this.setFlag(Flag.Z, this.reg8[reg8] == 0);
-                this.setFlag(Flag.N, 0);
-                this.setFlag(Flag.H, 0);
+                this.setFlags(Flag.Z, this.reg8[reg8] == 0);
+                this.setFlags(Flag.N + Flag.H, 0);
 
                 return 1;
             }
@@ -983,9 +990,9 @@ const CPU = {
             return () => {
                 const bitValue = RAM.read(this.getHL()) & mask;
 
-                this.setFlag(Flag.Z, !bitValue)
-                this.setFlag(Flag.N, 0);
-                this.setFlag(Flag.H, 1);
+                this.setFlags(Flag.Z, !bitValue)
+                this.setFlags(Flag.N, 0);
+                this.setFlags(Flag.H, 1);
 
                 return 1;
             }
@@ -993,9 +1000,9 @@ const CPU = {
             return () => {
                 const bitValue = this.reg8[reg8] & mask;
 
-                this.setFlag(Flag.Z, !bitValue)
-                this.setFlag(Flag.N, 0);
-                this.setFlag(Flag.H, 1);
+                this.setFlags(Flag.Z, !bitValue)
+                this.setFlags(Flag.N, 0);
+                this.setFlags(Flag.H, 1);
 
                 return 1;
             }

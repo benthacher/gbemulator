@@ -216,7 +216,7 @@ const CPU = {
         }
     },
     reti() {
-        const instr = this.ret(null);
+        const instr = this.ret();
         return () => {
             this.IME = true; // enable interrupts and return normally
             return instr();
@@ -689,7 +689,7 @@ const CPU = {
     },
     call(callCondition) {
         switch (callCondition) {
-            case null:
+            case undefined:
                 return (addr_l, addr_h) => {
                     // push PC + 1 onto stack
                     this.reg16[Reg16.SP]--;
@@ -997,7 +997,7 @@ const CPU = {
     jump(bounded, jumpCondition) {
         if (bounded) { // if instruction is JR, add immediate signed value to PC based on conditions
             switch (jumpCondition) {
-                case null:
+                case undefined:
                     return (imm8) => {
                         this.reg16[Reg16.PC] += twosComp(imm8);
                         return 0;
@@ -1033,7 +1033,7 @@ const CPU = {
             }
         } else {
             switch (jumpCondition) {
-                case null:
+                case undefined:
                     return (imm16_l, imm16_h) => {
                         this.reg16[Reg16.PC] = (imm16_h << 8) + imm16_l;
                         return 0;

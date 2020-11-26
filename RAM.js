@@ -44,10 +44,14 @@ RAM.loadROM = (buffer) => {
 
     ROM = buffer;
 
+    RAM.loadROMintoRAM();
+}
+
+RAM.loadROMintoRAM = () => {
     displayROMAttributes();
 
     if (validROM)
-        RAM.set(buffer.subarray(0, VRAM - 1), CARTRIDGE_RAM_BANK_0); // write the input buffer to the cartidge RAM
+        RAM.set(ROM.subarray(0, VRAM - 1), CARTRIDGE_RAM_BANK_0); // write the ROM to the cartidge RAM
     else
         console.log('invalid ROM');
 }

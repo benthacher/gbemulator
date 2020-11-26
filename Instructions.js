@@ -1,37 +1,197 @@
 // Instruction LUT
+// https://meganesulli.com/generate-gb-opcodes/ used extensively
 const INSTRUCTIONS = {
     0x00: CPU.nop(),
-    0x01: CPU.ld16(Reg8.B, Reg16.CONSTANT),
-    0x02: CPU.ld8(Reg8.BC_ADDRESS, Reg8.A),
+    0x10: CPU.stop(),
 }
 
+// JR - jump bounded by [-128, 127] range
+for (const condition of Object.values(JumpCondition))
+    INSTRUCTIONS[0x20 + condition] = CPU.jump(true, condition);
+
+// load 16 bit regs
+let i = 0x01; // starting from 0x01, the index is incremented by 16 each loop, basically starting from opcode 0x01 and going to 0x31
+for (const reg16 of Reg16Order) {
+    INSTRUCTIONS[i] = CPU.ld16(reg16, Reg16.CONSTANT);
+    i += 16;
+}
+
+// increment 16 bit regs
+i = 0x03;
+for (const reg16 of Reg16Order) {
+    INSTRUCTIONS[i] = CPU.inc16(reg16);
+    i += 16;
+}
+
+// increment 8 bit regs
+i = 0x04;
+for (const reg8 of Reg8Order) {
+    INSTRUCTIONS[i] = CPU.inc8(reg8);
+    i += 8;
+}
+
+// decrement 8 bit regs
+i = 0x05;
+for (const reg8 of Reg8Order) {
+    INSTRUCTIONS[i] = CPU.inc8(reg8, true); // decrement = true
+    i += 8;
+}
+
+// load 8 bit regs with immediate data
+i = 0x06;
+for (const reg8 of Reg8Order) {
+    INSTRUCTIONS[i] = CPU.ld8Data(reg8);
+    i += 8;
+}
+
+// RLCA (shorter opcode than normal 2 byte one)
+INSTRUCTIONS[0x07] = CPU.rotate(Reg8.A, true, true);
+// RLA (shorter opcode than normal 2 byte one)
+INSTRUCTIONS[0x17] = CPU.rotate(Reg8.A, true, false);
+// DAA - converts A register to binary coded decimal
+INSTRUCTIONS[0x27] = CPU.daa();
+// SCF - set carry flag
+INSTRUCTIONS[0x37] = CPU.scf();
+// load SP into address
+INSTRUCTIONS[0x08] = CPU.ldSP();
+// JR with no condition
+INSTRUCTIONS[0x18] = CPU.jump(true);
+
+// HL addition instructions
+i = 0x09
+for (const reg16 of Reg16Order) {
+    INSTRUCTIONS[i] = CPU.addHL(reg16);
+    i += 16;
+}
+
+// 16 bit decrement
+i = 0x0B
+for (const reg16 of Reg16Order) {
+    INSTRUCTIONS[i] = CPU.inc16(reg16, true);
+    i += 16;
+}
+
+// RRCA (shorter opcode than normal 2 byte one)
+INSTRUCTIONS[0x0F] = CPU.rotate(Reg8.A, false, true);
+// RRA (shorter opcode than normal 2 byte one)
+INSTRUCTIONS[0x1F] = CPU.rotate(Reg8.A, false, false);
+// CPL - binary complement of A
+INSTRUCTIONS[0x2F] = CPU.cpl();
+// CCF - flip carry flag
+INSTRUCTIONS[0x3F] = CPU.ccf();
+
 // starting from opcode 0x40, populate the load instructions
-let i = 0x40;
+i = 0x40;
 for (let dest of Reg8Order) {
     for (let src of Reg8Order) {
         INSTRUCTIONS[i++] = CPU.ld8(dest, src);
     }
 }
+
 INSTRUCTIONS[0x76] = CPU.halt(); // make sure to overwrite LD (HL), (HL) with HALT
 
 // starting from opcode 0x80, populate add, adc, sub, sbc instructions
 i = 0x80
-for (let reg8 of Reg8Order)
+for (const reg8 of Reg8Order)
     INSTRUCTIONS[i++] = CPU.add8(Reg8.A, reg8);
 
-for (let reg8 of Reg8Order)
+for (const reg8 of Reg8Order)
     INSTRUCTIONS[i++] = CPU.add8(Reg8.A, reg8, true);
 
-for (let reg8 of Reg8Order)
+for (const reg8 of Reg8Order)
     INSTRUCTIONS[i++] = CPU.add8(Reg8.A, reg8, false, true);
 
-for (let reg8 of Reg8Order)
+for (const reg8 of Reg8Order)
     INSTRUCTIONS[i++] = CPU.add8(Reg8.A, reg8, true, true);
 
-// instructions used with the 0xCB prefix
-const CB_INSTRUCTIONS = {
-    
+// starting from 0xA0, populate and, xor, or, cp instructions
+i = 0xA0;
+for (const reg8 of Reg8Order)
+    INSTRUCTIONS[i++] = CPU.and(reg8);
+
+for (const reg8 of Reg8Order)
+    INSTRUCTIONS[i++] = CPU.xor(reg8);
+
+for (const reg8 of Reg8Order)
+    INSTRUCTIONS[i++] = CPU.or(reg8);
+
+for (const reg8 of Reg8Order)
+    INSTRUCTIONS[i++] = CPU.cp(reg8);
+
+// return instructions
+for (const condition of Object.values(JumpCondition))
+    INSTRUCTIONS[0xC0 + condition] = CPU.ret(condition);
+
+// pop instructions
+// technically, the final element in the Reg16Order array is the SP register, while the final pop instruction operates on the AF register.
+// luckily, the AF register has the same index in the reg8 array as SP does in the reg16 array (0), so this is not an issue.
+i = 0xC1;
+for (const reg16 of Reg16Order) {
+    INSTRUCTIONS[i] = CPU.pop(reg16);
+    i += 16;
 }
+
+// normal jump instructions
+for (const condition of Object.values(JumpCondition))
+    INSTRUCTIONS[0xC2 + condition] = CPU.jump(false, condition);
+
+// jump with no condition
+INSTRUCTIONS[0xC3] = CPU.jump(false);
+
+// call instructions
+for (const condition of Object.values(JumpCondition))
+    INSTRUCTIONS[0xC4 + condition] = CPU.call(condition);
+
+// push instructions
+i = 0xC5;
+for (const reg16 of Reg16Order) {
+    INSTRUCTIONS[i] = CPU.push(reg16);
+    i += 16;
+}
+
+// add immediate value
+INSTRUCTIONS[0xC6] = CPU.add8(Reg8.A, Reg8.CONSTANT, false, false);
+// subtract immediate value
+INSTRUCTIONS[0xD6] = CPU.add8(Reg8.A, Reg8.CONSTANT, false, true);
+// and immediate value
+INSTRUCTIONS[0xE6] = CPU.and(Reg8.CONSTANT);
+// or immediate value
+INSTRUCTIONS[0xF6] = CPU.or(Reg8.CONSTANT);
+
+// add immediate value with carry
+INSTRUCTIONS[0xCE] = CPU.add8(Reg8.A, Reg8.CONSTANT, true, false);
+// subtract immediate value with carry
+INSTRUCTIONS[0xDE] = CPU.add8(Reg8.A, Reg8.CONSTANT, true, true);
+// xor immediate value
+INSTRUCTIONS[0xEE] = CPU.xor(Reg8.CONSTANT);
+// cp immediate value
+INSTRUCTIONS[0xFE] = CPU.cp(Reg8.CONSTANT);
+
+// restart instructions
+for (i = 0; i < 64; i += 8)
+    INSTRUCTIONS[0xC7 + i] = CPU.rst(i);
+
+// stack pointer addition
+INSTRUCTIONS[0xE8] = CPU.addSP();
+
+// return with no conditions
+INSTRUCTIONS[0xC9] = CPU.ret();
+// return and enable interrupts
+INSTRUCTIONS[0xD9] = CPU.reti();
+// jump to address stored in HL
+INSTRUCTIONS[0xE9] = CPU.jumpHL();
+// load HL into SP
+INSTRUCTIONS[0xF9] = CPU.ld16(Reg16.SP, Reg8.H);
+// call with no condition
+INSTRUCTIONS[0xCD] = CPU.call();
+
+// disable interrupts
+INSTRUCTIONS[0xF3] = CPU.di();
+// enable interrupts
+INSTRUCTIONS[0xFB] = CPU.ei();
+
+// instructions used with the 0xCB prefix
+const CB_INSTRUCTIONS = {};
 
 // starting from CB opcode 0x40, populate bit, reset, and set instructions
 i = 0x40;

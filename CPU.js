@@ -42,6 +42,13 @@ const Reg16 = Object.freeze({
     MEMORY: 3
 });
 
+const Reg16Order = [
+    Reg8.B,
+    Reg8.D,
+    Reg8.H,
+    Reg16.SP,
+];
+
 /**
  * Bit offsets for flag register (F)
  * @typedef {number} Flag
@@ -270,6 +277,19 @@ const CPU = {
             return 1;
         }
     },
+    ld8Data(reg8) {
+        if (reg8 == Reg8.HL_ADDRESS) {
+            return (imm8) => {
+                RAM.write(this.getHL(), imm8);
+                return 1;
+            }
+        } else {
+            return (imm8) => {
+                this.reg8[reg8] = imm8;
+                return 1;
+            }
+        }
+    },
     // dest is the first register in a 2 byte reg pair (B -> BC, D -> DE)
     ld16(dest, src) {
         if (src == Reg16.CONSTANT) {
@@ -413,6 +433,8 @@ const CPU = {
     },
     addSP() {
         return (imm8) => {
+            imm8 = twosComp(imm8);
+
             const regValue = this.reg16[Reg16.SP];
             
             this.reg16[Reg16.SP] += imm8;
@@ -464,6 +486,16 @@ const CPU = {
 
                 return 1;
             }
+        } else if (reg8 == Reg8.CONSTANT) {
+            return (imm8) => {
+                this.reg8[Reg8.A] &= imm8;
+
+                this.setFlags(Flag.Z, this.reg8[Reg8.A] == 0);
+                this.setFlags(Flag.N + Flag.C, 0);
+                this.setFlags(Flag.H, 1);
+
+                return 1;
+            }
         } else {
             return () => {
                 this.reg8[Reg8.A] &= this.reg8[reg8];
@@ -486,6 +518,15 @@ const CPU = {
 
                 return 1;
             }
+        } else if (reg8 == Reg8.CONSTANT) {
+            return (imm8) => {
+                this.reg8[Reg8.A] |= imm8;
+                
+                this.setFlags(Flag.Z, this.reg8[Reg8.A] == 0);
+                this.setFlags(Flag.N + Flag.H + Flag.C, 0);
+
+                return 1;
+            }
         } else {
             return () => {
                 this.reg8[Reg8.A] |= this.reg8[reg8];
@@ -501,6 +542,15 @@ const CPU = {
         if (reg8 == Reg8.HL_ADDRESS) {
             return () => {
                 this.reg8[Reg8.A] ^= RAM.read(this.getHL());
+                
+                this.setFlags(Flag.Z, this.reg8[Reg8.A] == 0);
+                this.setFlags(Flag.N + Flag.H + Flag.C, 0);
+
+                return 1;
+            }
+        } else if (reg8 == Reg8.CONSTANT) {
+            return (imm8) => {
+                this.reg8[Reg8.A] ^= imm8;
                 
                 this.setFlags(Flag.Z, this.reg8[Reg8.A] == 0);
                 this.setFlags(Flag.N + Flag.H + Flag.C, 0);
@@ -529,6 +579,18 @@ const CPU = {
                 this.setFlags(Flag.N, 1);
                 this.setHalfCarry(this.reg8[Reg8.A], -ramValue);
                 this.setCarry(this.reg8[Reg8.A], -ramValue);
+
+                return 1;
+            }
+        } else if (reg8 == Reg8.CONSTANT) {
+            return (imm8) => {
+                let Avalue = this.reg8[Reg8.A];
+                Avalue -= imm8;
+                
+                this.setFlags(Flag.Z, Avalue == 0);
+                this.setFlags(Flag.N, 1);
+                this.setHalfCarry(this.reg8[Reg8.A], -imm8);
+                this.setCarry(this.reg8[Reg8.A], -imm8);
 
                 return 1;
             }
@@ -1005,6 +1067,12 @@ const CPU = {
                         } else return 1;
                     };
             }
+        }
+    },
+    jumpHL() {
+        return () => {
+            this.reg16[Reg16.PC] = this.getHL();
+            return 0;
         }
     },
     bit(bit, reg8) {

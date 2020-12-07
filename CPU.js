@@ -70,6 +70,14 @@ const JumpCondition = Object.freeze({
     C: 0x18
 });
 
+const Interrupt = Object.freeze({
+    VBLANK: 0x40,
+    STAT: 0x48,
+    TIMER: 0x50,
+    SERIAL: 0x58,
+    JOYPAD: 0x60
+});
+
 const register8Table = document.querySelector('#register8-table');
 const register16Table = document.querySelector('#register16-table');
 
@@ -1127,6 +1135,18 @@ const CPU = {
             }
         }
     },
+    setInterruptFlag(interrupt, value) {
+        let IF = RAM.read(IO_IF);
+        const bit = Object.values().indexOf(interrupt);
+
+        if (value)
+            IF |= 1 << bit; // enable
+        else
+            IF &= ~(1 << bit); // disable
+    },
+    isInterruptEnabled(interrupt) {
+        return RAM.read(IO_IE) & (1 << Object.values().indexOf(interrupt));
+    }
 };
 
 function generateRegisterTable() {

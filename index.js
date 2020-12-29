@@ -40,16 +40,7 @@ function updateButtonState() {
     }
 }
 
-window.onkeydown = e => {
-    // stopped = true;
-
-    if (e.key == 'Enter')
-        loop();
-    if (e.key == 'r') {
-        gb.reset();
-        RAM.loadROMintoRAM();
-    }
-}
+window.onmousedown = loop;
 
 function loop() {
     if (CPU.stopped) {

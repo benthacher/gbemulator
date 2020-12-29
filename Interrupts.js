@@ -38,14 +38,23 @@ keyBindings = {
     13: 0b00000001, // Start button
 };
 
-window.onkeydown = window.onkeyup = keyInput;
+window.onkeyup = keyInput;
+
+window.onkeydown = e => {
+    if (e.key == 'r') {
+		gb.reset();
+		if (ROM)
+			RAM.loadROMintoRAM();
+	}
+	keyInput(e);
+}
 
 function keyInput(e) {
-    const mask = keyBindings[e.keyCode];
-
+	const mask = keyBindings[e.keyCode];
+	
 	// if the keycode is mapped to a binding mask, use it to update joyByte
     if (mask) // if event type is keydown, reset corresponding bit. else set the bit (this mimics active low)
-    	joyByte = e.type == 'keydown' ? joyByte & (~mask) : joyByte | mask;
+		joyByte = e.type == 'keydown' ? joyByte & (~mask) : joyByte | mask;
 }
 
 /**

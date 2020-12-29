@@ -23,7 +23,50 @@ function drawPixel(x, y, color) {
 }
 
 function drawSprite(x, y, index, flags) {
-    // for (let r = y; r < y + )
+    const flipX =       flags & 0b00100000;
+    const flipY =       flags & 0b01000000;
+    const priority =    flags & 0b10000000;
+    // TODO: palette number 
+    const baseAddr = SPRITE_PATTERN_TABLE + index;
+
+    // if () { // 8x16 data
+        if (flipY) {
+            for (let r = 7; r >= 0; r--) {
+                if (flipX) {
+                    for (let c = 0; c < 8; c++) {
+                        let color = colors[((RAM.read(baseAddr + r * 2 + 1) & (1 << c)) << 1) + (RAM.read(baseAddr + r * 2) & (1 << c))]
+                        drawPixel(x + c, y + r, color);
+                    }
+                } else {
+                    for (let c = 7; c >= 0; c--) {
+                        let color = colors[((RAM.read(baseAddr + r * 2 + 1) & (1 << c)) << 1) + (RAM.read(baseAddr + r * 2) & (1 << c))]
+                        drawPixel(x + c, y + r, color);
+                    }
+                }
+            }
+        } else {
+            for (let r = 0; r < 8; r++) {
+                if (flipX) {
+                    for (let c = 0; c < 8; c++) {
+                        let color = colors[((RAM.read(baseAddr + r * 2 + 1) & (1 << c)) << 1) + (RAM.read(baseAddr + r * 2) & (1 << c))]
+                        drawPixel(x + c, y + r, color);
+                    }
+                } else {
+                    for (let c = 7; c >= 0; c--) {
+                        let color = colors[((RAM.read(baseAddr + r * 2 + 1) & (1 << c)) << 1) + (RAM.read(baseAddr + r * 2) & (1 << c))]
+                        drawPixel(x + c, y + r, color);
+                    }
+                }
+            }
+        }
+    // } else { // 8x8 data
+        // for (let r = 0; r < 16; r++) {
+        //     for (let c = 0; c < 8; c++) {
+        //         let color = colors[]
+        //         drawPixel(x + c, y + (r >> 1), color);
+        //     }
+        // }
+    // }
 }
 
 // Read through sprite attribute memory (OAM) and tile table to construct screen

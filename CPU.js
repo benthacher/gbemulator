@@ -295,12 +295,12 @@ const CPU = {
         if (reg8 == Reg8.HL_ADDRESS) {
             return (imm8) => {
                 RAM.write(this.getHL(), imm8);
-                return 1;
+                return 2;
             }
         } else {
             return (imm8) => {
                 this.reg8[reg8] = imm8;
-                return 1;
+                return 2;
             }
         }
     },

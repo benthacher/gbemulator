@@ -1137,7 +1137,7 @@ const CPU = {
     },
     setInterruptFlag(interrupt, value) {
         let IF = RAM.read(IO_IF);
-        const bit = Object.values().indexOf(interrupt);
+        const bit = Object.values(Interrupt).indexOf(interrupt);
 
         if (value)
             IF |= 1 << bit; // enable
@@ -1147,7 +1147,7 @@ const CPU = {
         RAM.write(IO_IF, IF);
     },
     isInterruptEnabled(interrupt) {
-        return RAM.read(IO_IE) & (1 << Object.values().indexOf(interrupt));
+        return this.IME && RAM.read(IO_IE) & (1 << Object.values(Interrupt).indexOf(interrupt));
     }
 };
 

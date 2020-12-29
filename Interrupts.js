@@ -47,6 +47,8 @@ window.onkeydown = e => {
 			RAM.loadROMintoRAM();
 	}
 	keyInput(e);
+
+	CPU.setInterruptFlag(Interrupt.JOYPAD, true);
 }
 
 function keyInput(e) {

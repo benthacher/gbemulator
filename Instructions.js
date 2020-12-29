@@ -1,9 +1,8 @@
 // Instruction LUT
 // https://meganesulli.com/generate-gb-opcodes/ used extensively
-const INSTRUCTIONS = {
-    0x00: CPU.nop(),
-    0x10: CPU.stop(),
-}
+let INSTRUCTIONS = [];
+INSTRUCTIONS[0x00] = CPU.nop();
+INSTRUCTIONS[0x10] = CPU.stop();
 
 // JR - jump bounded by [-128, 127] range
 for (const condition of Object.values(JumpCondition))
@@ -215,6 +214,19 @@ for (let bit = 0; bit < 8; bit++) {
 CPU.doCycle = function() {
     // get instruction at PC
     let PC = this.reg16[Reg16.PC];
+
+    if (this.IME) { // if interrupts are enabled
+        let IF = RAM.read(IO_IF);
+        let IE = RAM.read(IO_IE);
+
+        for (let bit = 1; bit < 6; bit++) {
+            if (IF & IE & (1 << bit)) { // if bit i is set in IF and IE, we must service interrupt
+                this.call()(bit * 8 + 40, 0x00);
+                this.IME = false; // disable interrupts
+                this.setInterruptFlag(bit * 8 + 40, false);
+            }
+        }
+    }
 
     let opcode = RAM.read(PC);
     if (opcode == 0xCB) {

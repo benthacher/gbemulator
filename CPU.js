@@ -1143,6 +1143,8 @@ const CPU = {
             IF |= 1 << bit; // enable
         else
             IF &= ~(1 << bit); // disable
+        
+        RAM.write(IO_IF, IF);
     },
     isInterruptEnabled(interrupt) {
         return RAM.read(IO_IE) & (1 << Object.values().indexOf(interrupt));

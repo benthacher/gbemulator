@@ -29,7 +29,11 @@ const IO_IE = 0xFFFF; // interrupt enable
 RAM.read = (addr) => {
     if (addr < OAM && addr >= ECHO_8kB_INTERNAL) // if accessing echo RAM, access actual ram instead
         addr -= 0x4000; // shift address down 8kB (size of the echo RAM)
-    
+
+    // Technically not how a real gameboy would operate but I don't think this should be an issue
+    if (addr == IO_P1) // if checking keys
+        return P14selected ? (joyByte >> 4) & 0xF : joyByte & 0xF; // if P14 is selected, return high nibble of joyByte. else return low nibble
+
     if (addr >= 0 && addr < RAM.length)
         return RAM[addr];
     else
@@ -40,10 +44,13 @@ RAM.write = (addr, val) => {
     if (addr < OAM && addr >= ECHO_8kB_INTERNAL) // if writing to echo RAM, write to actual ram instead
         addr -= 0x4000; // shift address down 8kB (size of the echo RAM)
     
+    if (addr == IO_P1) // program is selecting joy input
+        P14selected = ~val & 0x20; // program is selecting P14 (see Interrupts.js)
+
     if (addr >= 0 && addr < RAM.length)
         RAM[addr] = val;
     else
-        console.log('Illegal memory access! Attempted to write', val, 'to', '0x' + (+addr).toString(16).toUpperCase());
+        console.log('Illegal memory access! Attempted to write', val, 'to 0x' + (+addr).toString(16).toUpperCase());
 }
 
 let ROM; // represents full memory of cartidge

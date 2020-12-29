@@ -216,10 +216,11 @@ CPU.doCycle = function() {
     // get instruction at PC
     let PC = this.reg16[Reg16.PC];
 
-    if (PC == 0xCB) {
+    let opcode = RAM.read(PC);
+    if (opcode == 0xCB) {
         this.reg16[Reg16.PC] = ++PC;
         
-        const opcode = RAM.read(PC);
+        opcode = RAM.read(PC);
         const instr = CB_INSTRUCTIONS[opcode];
 
         if (typeof instr == 'function') {
@@ -232,7 +233,6 @@ CPU.doCycle = function() {
             this.stopped = true;
         }
     } else {
-        const opcode = RAM.read(PC);
         const instr = INSTRUCTIONS[opcode];
 
         if (typeof instr == 'function') {

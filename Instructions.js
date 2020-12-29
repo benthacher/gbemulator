@@ -15,6 +15,16 @@ for (const reg16 of Reg16Order) {
     i += 16;
 }
 
+INSTRUCTIONS[0x02] = CPU.ldBCA;
+INSTRUCTIONS[0x12] = CPU.ldDEA;
+INSTRUCTIONS[0x22] = CPU.ldHLincA;
+INSTRUCTIONS[0x32] = CPU.ldHLdecA;
+
+INSTRUCTIONS[0x0A] = CPU.ldABC;
+INSTRUCTIONS[0x1A] = CPU.ldADE;
+INSTRUCTIONS[0x2A] = CPU.ldAHLinc;
+INSTRUCTIONS[0x3A] = CPU.ldAHLdec;
+
 // increment 16 bit regs
 i = 0x03;
 for (const reg16 of Reg16Order) {
@@ -90,7 +100,7 @@ for (let dest of Reg8Order) {
 INSTRUCTIONS[0x76] = CPU.halt(); // make sure to overwrite LD (HL), (HL) with HALT
 
 // starting from opcode 0x80, populate add, adc, sub, sbc instructions
-i = 0x80
+i = 0x80;
 for (const reg8 of Reg8Order)
     INSTRUCTIONS[i++] = CPU.add8(Reg8.A, reg8);
 
@@ -184,28 +194,58 @@ INSTRUCTIONS[0xF9] = CPU.ld16(Reg16.SP, Reg8.H);
 // call with no condition
 INSTRUCTIONS[0xCD] = CPU.call();
 
+// out and in instructions
+INSTRUCTIONS[0xE0] = CPU.out;
+INSTRUCTIONS[0xF0] = CPU.in;
+INSTRUCTIONS[0xE2] = CPU.outC;
+INSTRUCTIONS[0xF2] = CPU.inC;
+
+// imm16 address load
+INSTRUCTIONS[0xEA] = CPU.ld8(Reg8.MEMORY, Reg8.A);
+INSTRUCTIONS[0xFA] = CPU.ld8(Reg8.A, Reg8.MEMORY);
+
 // disable interrupts
 INSTRUCTIONS[0xF3] = CPU.di();
 // enable interrupts
 INSTRUCTIONS[0xFB] = CPU.ei();
 
+INSTRUCTIONS[0xF8] = CPU.ld_hl_sp_s8;
+
 // instructions used with the 0xCB prefix
-const CB_INSTRUCTIONS = {};
+const CB_INSTRUCTIONS = [];
+
+i = 0;
+for (const reg of Reg8Order) // rotate left with carry
+    CB_INSTRUCTIONS[i++] = CPU.rotate(reg, true, true);
+for (const reg of Reg8Order) // rotate right with carry
+    CB_INSTRUCTIONS[i++] = CPU.rotate(reg, false, true);
+for (const reg of Reg8Order) // rotate left without carry
+    CB_INSTRUCTIONS[i++] = CPU.rotate(reg, true, false);
+for (const reg of Reg8Order) // rotate right without carry
+    CB_INSTRUCTIONS[i++] = CPU.rotate(reg, false, false);
+
+for (const reg of Reg8Order) // shift left
+    CB_INSTRUCTIONS[i++] = CPU.shift(reg, true, false);
+for (const reg of Reg8Order) // shift right and leave bit 7 unchanged
+    CB_INSTRUCTIONS[i++] = CPU.shift(reg, false, true);
+for (const reg of Reg8Order) // swap
+    CB_INSTRUCTIONS[i++] = CPU.swap(reg);
+for (const reg of Reg8Order) // shift right and reset bit 7
+    CB_INSTRUCTIONS[i++] = CPU.shift(reg, false, false);
 
 // starting from CB opcode 0x40, populate bit, reset, and set instructions
-i = 0x40;
 for (let bit = 0; bit < 8; bit++) {
-    for (let reg of Reg8Order) {
+    for (const reg of Reg8Order) {
         CB_INSTRUCTIONS[i++] = CPU.bit(bit, reg);
     }
 }
 for (let bit = 0; bit < 8; bit++) {
-    for (let reg of Reg8Order) {
+    for (const reg of Reg8Order) {
         CB_INSTRUCTIONS[i++] = CPU.res(bit, reg);
     }
 }
 for (let bit = 0; bit < 8; bit++) {
-    for (let reg of Reg8Order) {
+    for (const reg of Reg8Order) {
         CB_INSTRUCTIONS[i++] = CPU.set(bit, reg);
     }
 }
@@ -221,9 +261,10 @@ CPU.doCycle = function() {
 
         for (let bit = 1; bit < 6; bit++) {
             if (IF & IE & (1 << bit)) { // if bit i is set in IF and IE, we must service interrupt
-                this.call()(bit * 8 + 40, 0x00);
+                this.call()(bit * 8 + 0x40, 0x00);
                 this.IME = false; // disable interrupts
                 this.setInterruptFlag(bit * 8 + 40, false);
+                break;
             }
         }
     }
@@ -235,7 +276,7 @@ CPU.doCycle = function() {
         opcode = RAM.read(PC);
         const instr = CB_INSTRUCTIONS[opcode];
 
-        if (typeof instr == 'function') {
+        if (instr) {
             this.PCinc = instr(
                 RAM.read(PC + 1), // call instruction prefixed with 0xCB using the next two bits
                 RAM.read(PC + 2)
@@ -247,7 +288,7 @@ CPU.doCycle = function() {
     } else {
         const instr = INSTRUCTIONS[opcode];
 
-        if (typeof instr == 'function') {
+        if (instr) {
             this.PCinc = instr(
                 RAM.read(PC + 1), // call instruction using the next two bits
                 RAM.read(PC + 2)

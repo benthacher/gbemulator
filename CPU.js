@@ -279,7 +279,7 @@ const CPU = {
                     return 1;
                 };
         }
-        // if no special cases, load simple reg8 into reg8
+        // if no special cases, simply load src into dest
         return () => {
             this.reg8[dest] = this.reg8[src];
             return 1;
@@ -989,14 +989,11 @@ const CPU = {
             }
         } else {
             return () => {
-                const lowNibble = this.reg8[reg8] << 4; //  xxxxllll -> xxxxllll0000
-                const highNibble = this.reg8[reg8] >> 4; // hhhhxxxx ->     0000hhhh
-
-                //   xxxxllll0000
-                // +     0000hhhh
+                //   xxxxllll0000 // reg << 4
+                // +     0000hhhh // reg >> 4
                 // --------------
                 //   xxxxllllhhhh <- top 4 bits (xxxx) are chopped off because registers are only 8 bits!
-                this.reg8[reg8] = lowNibble + highNibble;
+                this.reg8[reg8] = (this.reg8[reg8] << 4) + (this.reg8[reg8] >> 4);
 
                 return 1;
             }
@@ -1146,8 +1143,58 @@ const CPU = {
         
         RAM.write(IO_IF, IF);
     },
-    isInterruptEnabled(interrupt) {
-        return this.IME && RAM.read(IO_IE) & (1 << Object.values(Interrupt).indexOf(interrupt));
+    // the weird instructions
+    // load A into 16 bit reg memory 
+    ldBCA: () => { RAM.write(CPU.combinedRegRead(Reg8.B, Reg8.C), CPU.reg8[Reg8.A]); return 1; },
+    ldDEA: () => { RAM.write(CPU.combinedRegRead(Reg8.D, Reg8.E), CPU.reg8[Reg8.A]); return 1;  },
+    ldHLincA: () => { // load contents of A into memory at HL, then increment HL
+        const hl = CPU.getHL();
+        RAM.write(hl, CPU.reg8[Reg8.A]);
+        CPU.combinedRegWrite(Reg8.H, Reg8.L, hl + 1);
+        return 1;
+    },
+    ldHLdecA: () => { // load contents of A into memory at HL, then decrement HL
+        const hl = CPU.getHL();
+        RAM.write(hl, CPU.reg8[Reg8.A]);
+        CPU.combinedRegWrite(Reg8.H, Reg8.L, hl - 1);
+        return 1;
+    },
+    // load data at 16 bit reg into A
+    ldABC: () => { CPU.reg8[Reg8.A] = RAM.read(CPU.combinedRegRead(Reg8.B, Reg8.C)); return 1; },
+    ldADE: () => { CPU.reg8[Reg8.A] = RAM.read(CPU.combinedRegRead(Reg8.D, Reg8.E)); return 1; },
+    ldAHLinc: () => { // load contents of memory at HL into A, then increment HL
+        const hl = CPU.getHL();
+        CPU.reg8[Reg8.A] = RAM.read(hl);
+        CPU.combinedRegWrite(Reg8.H, Reg8.L, hl + 1);
+        return 1;
+    },
+    ldAHLdec: () => { // load contents of memory at HL into A, then decrement HL
+        const hl = CPU.getHL();
+        CPU.reg8[Reg8.A] = RAM.read(hl);
+        CPU.combinedRegWrite(Reg8.H, Reg8.L, hl - 1);
+        return 1;
+    },
+    // essentially z80 OUT and IN instructions
+    out: (imm8) => { RAM.write(0xFF00 + imm8, CPU.reg8[Reg8.A]); return 2; },
+    in: (imm8) => { CPU.reg8[Reg8.A] = RAM.read(0xFF00 + imm8); return 2; },
+    // z80 OUT and IN using data at C
+    outC: () => { RAM.write(0xFF00 + CPU.reg8[Reg8.C], CPU.reg8[Reg8.A]); return 1; },
+    inC: () => { CPU.reg8[Reg8.A] = RAM.read(0xFF00 + CPU.reg8[Reg8.C]); return 1; },
+    
+    // weirdest instruction by far
+    // add s8 to SP and store result in HL
+    ld_hl_sp_s8: (s8) => { // takes signed 8 bit immediate data
+        s8 = twosComp(s8); // fix sign (force 8 bit twos complement)
+        let sp = CPU.reg16[Reg16.SP];
+
+        CPU.setFlags(Flag.Z | Flag.N, 0); // reset zero and subtract flags
+        CPU.setCarry(sp, s8);
+        CPU.setHalfCarry(sp, s8);
+        
+        CPU.reg16[Reg16.SP] += s8;
+        CPU.combinedRegWrite(Reg8.H, Reg8.L, CPU.reg16[Reg16.SP]);
+
+        return 2;
     }
 };
 
@@ -1186,5 +1233,5 @@ function generateRegisterTable() {
 }
 
 function twosComp(imm8) {
-    return (imm8 & (1 << 7)) ? (~imm8) + 1 : imm8;
+    return (imm8 & (1 << 7)) ? -((~imm8 & 0xFF) + 1) : imm8;
 }

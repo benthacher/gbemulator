@@ -80,12 +80,15 @@ const Interrupt = Object.freeze({
 
 const register8Table = document.querySelector('#register8-table');
 const register16Table = document.querySelector('#register16-table');
+const IMEval = document.querySelector('#IME-val');
+const IFlist = document.querySelectorAll('.IF');
+const IElist = Array.from(document.querySelectorAll('.IE'));
 
 const CPU = {
     reg8: new Uint8Array(8), // 8 bit registers
     reg16: new Uint16Array(2), // 16 bit registers
     PCinc: 0,
-    IME: false,
+    IME: true,
     stopped: true,
 
     setFlags(flag, value) {
@@ -214,12 +217,14 @@ const CPU = {
     ei() {
         return () => {
             this.IME = true;
+            IMEval.innerHTML = 1;
             return 1;
         }
     },
     di() {
         return () => {
             this.IME = false;
+            IMEval.innerHTML = 0;
             return 1;
         }
     },
@@ -227,6 +232,7 @@ const CPU = {
         const instr = this.ret();
         return () => {
             this.IME = true; // enable interrupts and return normally
+            IMEval.innerHTML = 1;
             return instr();
         }
     },
@@ -252,7 +258,7 @@ const CPU = {
                     return 1;
                 };
             case Reg8.MEMORY:
-                return (addr_h, addr_l) => {
+                return (addr_l, addr_h) => {
                     RAM.write(RAM.read((addr_h << 8) + addr_l), this.reg8[src]);
                     return 1;
                 };
@@ -274,7 +280,7 @@ const CPU = {
                     return 1;
                 };
             case Reg8.MEMORY:
-                return (addr_h, addr_l) => {
+                return (addr_l, addr_h) => {
                     this.reg8[dest] = RAM.read((addr_h << 8) + addr_l);
                     return 1;
                 };
@@ -325,7 +331,7 @@ const CPU = {
         }
     },
     ldSP() { // loads the value of the stack pointer into the memory defined by next two bytes
-        return (addr_h, addr_l) => {
+        return (addr_l, addr_h) => {
             RAM.write(addr_h, this.reg16[Reg16.SP] >> 8);
             RAM.write(addr_l, this.reg16[Reg16.SP] & 0xFF);
 
@@ -1140,7 +1146,9 @@ const CPU = {
             IF |= 1 << bit; // enable
         else
             IF &= ~(1 << bit); // disable
-        
+
+        IFlist[bit].innerHTML = value;
+
         RAM.write(IO_IF, IF);
     },
     // the weird instructions

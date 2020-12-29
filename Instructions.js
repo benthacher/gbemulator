@@ -282,7 +282,7 @@ CPU.doCycle = function() {
                 RAM.read(PC + 2)
             ); // return value is the amount the PC should be incremented by    
         } else {
-            console.log('Undefined opcode:', '0x' + (opcode).toString(16).toUpperCase(), instr);
+            // console.log('Undefined opcode:', '0x' + (opcode).toString(16).toUpperCase(), instr);
             this.stopped = true;
         }
     } else {
@@ -295,8 +295,8 @@ CPU.doCycle = function() {
             ); // return value is the amount the PC should be incremented by
             console.log(instr);
         } else {
-            console.log(typeof opcode)
-            console.log('Undefined opcode:', '0x' + (opcode).toString(16).toUpperCase(), instr);
+            // console.log(typeof opcode)
+            // console.log('Undefined opcode:', '0x' + (opcode).toString(16).toUpperCase(), instr);
             this.stopped = true;
         }
     }

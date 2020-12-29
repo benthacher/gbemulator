@@ -44,8 +44,14 @@ RAM.write = (addr, val) => {
     if (addr < OAM && addr >= ECHO_8kB_INTERNAL) // if writing to echo RAM, write to actual ram instead
         addr -= 0x4000; // shift address down 8kB (size of the echo RAM)
     
-    if (addr == IO_P1) // program is selecting joy input
-        P14selected = ~val & 0x20; // program is selecting P14 (see Interrupts.js)
+    switch (addr) {
+        case IO_P1:
+            P14selected = ~val & 0x20; // program is selecting P14 (see Interrupts.js)
+            break;
+        case IO_IE:
+            IElist.forEach((elem, bit) => elem.innerHTML = val & (1 << bit));
+            break;
+    }
 
     if (addr >= 0 && addr < RAM.length)
         RAM[addr] = val;

@@ -22,12 +22,12 @@ function drawPixel(x, y, color) {
     ctx.fillRect(x * zoom, y * zoom, zoom, zoom);
 }
 
-function drawSprite(index) {
-    
+function drawSprite(x, y, index, flags) {
+    // for (let r = y; r < y + )
 }
 
 // Read through sprite attribute memory (OAM) and tile table to construct screen
-function drawScreen(width, height) {
+function drawScreen() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     // background
     
@@ -35,11 +35,13 @@ function drawScreen(width, height) {
     
     // sprites
     // start at OAM and look through each sprite's attributes to display them
-    for (let i = OAM; i < OAM + OAM_SPAN; i += 4) { // increment 4 because each sprite is a block of 4 bytes
-        
+    for (let i = OAM; i < OAM + OAM_SPAN; i += 4) { // increment 4 because each sprite data is a block of 4 bytes
+        // byte 0: y
+        // byte 1: x
+        // byte 2: sprite index in tile table
+        // byte 3: flags
+        drawSprite(RAM.read(i + 1), RAM.read(i), RAM.read(i + 2), RAM.read(i + 3));
     }
-    // once screen is drawn, call v-blank interrupt if it's enabled
-    
-    CPU.call()(0x00, 0x40); // v-blank interrupt service address is 0x0040
-    CPU.di()(); // disable interrupts (IME = 0)
+    // once screen is drawn, set v-blank in interrupt flag
+    CPU.setInterruptFlag(Interrupt.VBLANK, true);
 }

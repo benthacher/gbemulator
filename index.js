@@ -55,7 +55,7 @@ function loop() {
         for (let i = 0; i < instrPerLoop; i++) {
             CPU.doCycle();
         }
-        
+        drawScreen();
         requestAnimationFrame(loop);
     }
 }

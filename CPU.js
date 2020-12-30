@@ -81,8 +81,9 @@ const Interrupt = Object.freeze({
 const register8Table = document.querySelector('#register8-table');
 const register16Table = document.querySelector('#register16-table');
 const IMEval = document.querySelector('#IME-val');
-const IFlist = document.querySelectorAll('.IF');
+const IFlist = Array.from(document.querySelectorAll('.IF'));
 const IElist = Array.from(document.querySelectorAll('.IE'));
+const nextInstr = document.querySelector('#next-instr');
 
 const CPU = {
     reg8: new Uint8Array(8), // 8 bit registers
@@ -130,6 +131,8 @@ const CPU = {
             row[2].innerHTML = '0x' + value.toString(16).toUpperCase().padStart(4, '0');
             row[3].innerHTML = value;
         }
+
+        nextInstr.innerHTML = '0x' + RAM.read(this.reg16[Reg16.PC]).toString(16).toUpperCase().padStart(2, '0') + ' 0x' + RAM.read(this.reg16[Reg16.PC] + 1).toString(16).toUpperCase().padStart(2, '0') + ' 0x' + RAM.read(this.reg16[Reg16.PC] + 2).toString(16).toUpperCase().padStart(2, '0');
     },
     /**
      * 
@@ -260,7 +263,7 @@ const CPU = {
             case Reg8.MEMORY:
                 return (addr_l, addr_h) => {
                     RAM.write(RAM.read((addr_h << 8) + addr_l), this.reg8[src]);
-                    return 1;
+                    return 3;
                 };
         }
         switch (src) {
@@ -282,7 +285,7 @@ const CPU = {
             case Reg8.MEMORY:
                 return (addr_l, addr_h) => {
                     this.reg8[dest] = RAM.read((addr_h << 8) + addr_l);
-                    return 1;
+                    return 3;
                 };
         }
         // if no special cases, simply load src into dest
@@ -308,13 +311,13 @@ const CPU = {
     ld16(dest, src) {
         if (src == Reg16.CONSTANT) {
             if (dest == Reg16.SP) {
-                return (imm16_h, imm16_l) => {
+                return (imm16_l, imm16_h) => {
                     this.reg16[Reg16.SP] = (imm16_h << 8) + imm16_l;
     
                     return 3; // skip instruction, imm16_h, imm16_l
                 }
             } else {
-                return (imm16_h, imm16_l) => {
+                return (imm16_l, imm16_h) => {
                     this.combinedRegWrite(dest, dest + 1, (imm16_h << 8) + imm16_l);
     
                     return 3;
@@ -331,7 +334,7 @@ const CPU = {
         }
     },
     ldSP() { // loads the value of the stack pointer into the memory defined by next two bytes
-        return (addr_l, addr_h) => {
+        return (addr_h, addr_l) => {
             RAM.write(addr_h, this.reg16[Reg16.SP] >> 8);
             RAM.write(addr_l, this.reg16[Reg16.SP] & 0xFF);
 
@@ -606,7 +609,7 @@ const CPU = {
                 this.setHalfCarry(this.reg8[Reg8.A], -imm8);
                 this.setCarry(this.reg8[Reg8.A], -imm8);
 
-                return 1;
+                return 2;
             }
         } else {
             return () => {
@@ -735,7 +738,7 @@ const CPU = {
                         this.reg16[Reg16.PC] = (addr_h << 8) + addr_l;
 
                         return 0; // return zero, as the instruction at PC needs to be executed next
-                    } else return 1;
+                    } else return 3;
                 };
             case JumpCondition.NZ:
                 return (addr_l, addr_h) => {
@@ -753,7 +756,7 @@ const CPU = {
                         this.reg16[Reg16.PC] = (addr_h << 8) + addr_l;
 
                         return 0; // return zero, as the instruction at PC needs to be executed next
-                    } else return 1;
+                    } else return 3;
                 };
             case JumpCondition.C:
                 return (addr_l, addr_h) => {
@@ -771,7 +774,7 @@ const CPU = {
                         this.reg16[Reg16.PC] = (addr_h << 8) + addr_l;
 
                         return 0; // return zero, as the instruction at PC needs to be executed next
-                    } else return 1;
+                    } else return 3;
                 };
             case JumpCondition.NC:
                 return (addr_l, addr_h) => {
@@ -789,7 +792,7 @@ const CPU = {
                         this.reg16[Reg16.PC] = (addr_h << 8) + addr_l;
 
                         return 0; // return zero, as the instruction at PC needs to be executed next
-                    } else return 1;
+                    } else return 3;
                 };
         }
     },
@@ -1011,35 +1014,31 @@ const CPU = {
                 case undefined:
                     return (imm8) => {
                         this.reg16[Reg16.PC] += twosComp(imm8);
-                        return 0;
+                        return 2;
                     };
                 case JumpCondition.Z:
                     return (imm8) => {
-                        if (this.getFlag(Flag.Z)) {
+                        if (this.getFlag(Flag.Z))
                             this.reg16[Reg16.PC] += twosComp(imm8);
-                            return 0;
-                        } else return 1;
+                        return 2;
                     };
                 case JumpCondition.NZ:
                     return (imm8) => {
-                        if (!this.getFlag(Flag.Z)) {
+                        if (!this.getFlag(Flag.Z))
                             this.reg16[Reg16.PC] += twosComp(imm8);
-                            return 0;
-                        } else return 1;
+                        return 2;
                     };
                 case JumpCondition.C:
                     return (imm8) => {
-                        if (this.getFlag(Flag.C)) {
+                        if (this.getFlag(Flag.C))
                             this.reg16[Reg16.PC] += twosComp(imm8);
-                            return 0;
-                        } else return 1;
+                        return 2;
                     };
                 case JumpCondition.NC:
                     return (imm8) => {
-                        if (!this.getFlag(Flag.C)) {
+                        if (!this.getFlag(Flag.C))
                             this.reg16[Reg16.PC] += twosComp(imm8);
-                            return 0;
-                        } else return 1;
+                        return 2;
                     };
             }
         } else {
@@ -1054,28 +1053,28 @@ const CPU = {
                         if (this.getFlag(Flag.Z)) {
                             this.reg16[Reg16.PC] = (imm16_h << 8) + imm16_l;
                             return 0;
-                        } else return 1;
+                        } else return 3;
                     };
                 case JumpCondition.NZ:
                     return (imm16_l, imm16_h) => {
                         if (!this.getFlag(Flag.Z)) {
                             this.reg16[Reg16.PC] = (imm16_h << 8) + imm16_l;
                             return 0;
-                        } else return 1;
+                        } else return 3;
                     };
                 case JumpCondition.C:
                     return (imm16_l, imm16_h) => {
                         if (this.getFlag(Flag.C)) {
                             this.reg16[Reg16.PC] = (imm16_h << 8) + imm16_l;
                             return 0;
-                        } else return 1;
+                        } else return 3;
                     };
                 case JumpCondition.NC:
                     return (imm16_l, imm16_h) => {
                         if (!this.getFlag(Flag.C)) {
                             this.reg16[Reg16.PC] = (imm16_h << 8) + imm16_l;
                             return 0;
-                        } else return 1;
+                        } else return 3;
                     };
             }
         }

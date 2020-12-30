@@ -49,7 +49,10 @@ RAM.write = (addr, val) => {
             P14selected = ~val & 0x20; // program is selecting P14 (see Interrupts.js)
             break;
         case IO_IE:
-            IElist.forEach((elem, bit) => elem.innerHTML = val & (1 << bit));
+            IElist.forEach((elem, bit) => elem.innerHTML = (val & (1 << bit)) ? 1 : 0);
+            break;
+        case IO_IF:
+            IFlist.forEach((elem, bit) => elem.innerHTML = (val & (1 << bit)) ? 1 : 0);
             break;
     }
 

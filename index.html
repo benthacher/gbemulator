@@ -1,17 +1,23 @@
 <html>
     <head>
         <meta charset="UTF-8">
+        <style>
+            .info-box {
+                text-align: left;
+                border: solid 1px black;
+            }
+        </style>
     </head>
     <body>
         Screen
         <canvas id="screen"></canvas>
 
         <pre id="opcode-generation-message">Generating Opcodes...</pre>
-
+        
         <h2>Registers</h2>
         <table>
             <tr style="vertical-align: top">
-                <th style="border-top: solid 1px black; border-right: solid 1px black">
+                <th class="info-box">
                     <h3>8-bit Registers</h3>
                     <table id="register8-table" style="border-spacing: 10px 0; border-collapse: separate;">
                         <tr style="text-align: left;">
@@ -23,7 +29,7 @@
                     </table>
                 </th>
                 
-                <th style="border-top: solid 1px black; border-left: solid 1px black">
+                <th class="info-box">
                     <h3>16-bit Registers</h3>
                     <table id="register16-table" style="border-spacing: 10px 0; border-collapse: separate;">
                         <tr style="text-align: left;">
@@ -34,48 +40,53 @@
                         </tr>
                     </table>
                 </th>
+                <th class="info-box">
+                    <h3>Interrupts</h3>
+
+                    <h4>IME: <span id="IME-val">1</span></h4>
+                    <table>
+                        <tr>
+                            <th></th>
+                            <th>VBlank</th>
+                            <th>STAT</th>
+                            <th>Timer</th>
+                            <th>Serial</th>
+                            <th>Joypad</th>
+                        </tr>
+                        <tr>
+                            <td>IF</td>
+                            <td class="IF"></td>
+                            <td class="IF"></td>
+                            <td class="IF"></td>
+                            <td class="IF"></td>
+                            <td class="IF"></td>
+                        </tr>
+                        <tr>
+                            <td>IE</td>
+                            <td class="IE"></td>
+                            <td class="IE"></td>
+                            <td class="IE"></td>
+                            <td class="IE"></td>
+                            <td class="IE"></td>
+                        </tr>
+                    </table>
+                </th>
+                <th class="info-box">
+                    Next Instruction: <span id="next-instr"></span>
+
+                    Step through instructions
+                    <input id="step" type="checkbox">
+                    
+                    <br>
+                    <input type="button" id="start" value="Start" style="background: green">
+                    <br>
+            
+                    Load ROM
+                    <input id="rom-input" type="file">
+            
+                </th>
             </tr>
         </table>
-
-        <h3>Interrupts</h3>
-
-        <h4>IME: <span id="IME-val">1</span></h4>
-        <table>
-            <tr>
-                <th></th>
-                <th>VBlank</th>
-                <th>STAT</th>
-                <th>Timer</th>
-                <th>Serial</th>
-                <th>Joypad</th>
-            </tr>
-            <tr>
-                <td>IF</td>
-                <td class="IF"></td>
-                <td class="IF"></td>
-                <td class="IF"></td>
-                <td class="IF"></td>
-                <td class="IF"></td>
-            </tr>
-            <tr>
-                <td>IE</td>
-                <td class="IE"></td>
-                <td class="IE"></td>
-                <td class="IE"></td>
-                <td class="IE"></td>
-                <td class="IE"></td>
-            </tr>
-        </table>
-
-        Step through instructions
-        <input id="step" type="checkbox">
-        
-        <br>
-        <input type="button" id="start" value="Start" style="background: green">
-        <br>
-
-        Load ROM
-        <input id="rom-input" type="file">
 
         <script src="RAMconstants.js"></script>
         <script src="Interrupts.js"></script>

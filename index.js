@@ -2,15 +2,13 @@ generateRegisterTable();
 
 const gb = new GameBoy();
 
-let instrPerLoop = 1; // it can kinda go up to 100 almost 
+let instrPerLoop = 100; // it can kinda go up to 100 almost 
 
 const romInput = document.querySelector('#rom-input');
 romInput.value = "";
 romInput.onchange = function() {
     const reader = new FileReader();
-    reader.onload = function() {
-        RAM.loadROM(new Uint8Array(this.result));
-    };
+    reader.onload = function() { RAM.loadROM(new Uint8Array(this.result)); };
     reader.readAsArrayBuffer(this.files[0]);
 };
 

@@ -293,7 +293,7 @@ CPU.doCycle = function() {
                 RAM.read(PC + 1), // call instruction using the next two bits
                 RAM.read(PC + 2)
             ); // return value is the amount the PC should be incremented by
-            console.log(instr);
+            // console.log(instr);
         } else {
             // console.log(typeof opcode)
             // console.log('Undefined opcode:', '0x' + (opcode).toString(16).toUpperCase(), instr);
